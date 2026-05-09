@@ -325,7 +325,47 @@
     </div>
 
     <div class="settings-section">
-      <div class="settings-title">Data Management</div>
+      <div class="settings-title">GitHub Auto-Save Configuration</div>
+      <p style="font-size:14px;color:var(--ink-faded);font-style:italic;margin-bottom:16px;line-height:1.6">
+        Enter your GitHub details so changes are pushed automatically to your repository.
+        These settings are saved only on <strong>this device</strong> — never stored in the encrypted database.
+      </p>
+      <div class="form-grid" style="margin-bottom:12px">
+        <div class="form-group">
+          <label class="form-label">GitHub Username (Owner)</label>
+          <input type="text" class="form-input" id="gh-owner" placeholder="e.g. prajkrishnan">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Repository Name</label>
+          <input type="text" class="form-input" id="gh-repo" placeholder="e.g. familytree">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Branch</label>
+          <input type="text" class="form-input" id="gh-branch" placeholder="main">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Personal Access Token</label>
+          <input type="password" class="form-input" id="gh-token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <button class="btn-secondary" style="width:auto;margin-top:0" onclick="saveGhSettings()">Save GitHub Settings</button>
+        <a href="https://github.com/settings/tokens/new?scopes=repo&description=FamilyChronicle" target="_blank"
+           style="font-size:13px;color:var(--sepia);text-decoration:underline;font-style:italic">
+          How to create a Personal Access Token ↗
+        </a>
+      </div>
+      <div style="margin-top:14px;padding:10px 14px;background:var(--parchment-dark);border:1px solid var(--border-light);font-size:13px;color:var(--ink-faded);line-height:1.7">
+        <strong style="color:var(--ink-light)">How to create your token:</strong><br>
+        1. Click the link above → GitHub will open<br>
+        2. Set expiration to <em>No expiration</em><br>
+        3. Make sure <em>repo</em> scope is ticked<br>
+        4. Click <em>Generate token</em> and paste it above<br>
+        5. Click <em>Save GitHub Settings</em>
+      </div>
+    </div>
+
+    <div class="settings-section">
       <div class="settings-row">
         <div>
           <div class="settings-label">Download Database File</div>
@@ -570,6 +610,19 @@ let famContent = null;  // raw text of family.fam
 
 async function loadFamFile() {
   try {
+    // Try GitHub API first (gets SHA at same time — needed for updates)
+    const cfg = ghConfig();
+    if (cfg.owner && cfg.repo && cfg.token) {
+      const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/family.fam?ref=${cfg.branch||'main'}`;
+      const r   = await fetch(url, { headers: { Authorization: `token ${cfg.token}`, Accept: 'application/vnd.github+json' } });
+      if (r.ok) {
+        const data = await r.json();
+        famSha     = data.sha;
+        famContent = atob(data.content.replace(/\n/g,''));
+        return;
+      }
+    }
+    // Fallback: plain fetch (no SHA, pushes will do a fresh GET first)
     const resp = await fetch('family.fam', { cache:'no-store' });
     if (!resp.ok) throw new Error('not found');
     famContent = await resp.text();
@@ -617,6 +670,7 @@ function launchApp() {
   document.getElementById('app').style.display = 'flex';
   document.getElementById('chronicle-name-display').textContent = db.name ? '— '+db.name : '';
   document.getElementById('settings-name').value = db.name || '';
+  loadGhSettings();
   updateSessionBadge();
   renderAll();
 }
@@ -932,34 +986,123 @@ function clearPhoto() {
 }
 
 // ─────────────────────────────────────────────
-// AUTO-SAVE  — saves encrypted blob to family.fam via GitHub API
-// Falls back to in-memory only (user must download manually)
+// GITHUB CONFIG  (stored in localStorage — admin device only)
+// ─────────────────────────────────────────────
+function ghConfig() {
+  try { return JSON.parse(localStorage.getItem('fc_gh') || '{}'); } catch(e) { return {}; }
+}
+function ghSave(cfg) { localStorage.setItem('fc_gh', JSON.stringify(cfg)); }
+
+function loadGhSettings() {
+  const cfg = ghConfig();
+  document.getElementById('gh-owner').value  = cfg.owner  || '';
+  document.getElementById('gh-repo').value   = cfg.repo   || '';
+  document.getElementById('gh-token').value  = cfg.token  || '';
+  document.getElementById('gh-branch').value = cfg.branch || 'main';
+}
+
+function saveGhSettings() {
+  const cfg = {
+    owner:  document.getElementById('gh-owner').value.trim(),
+    repo:   document.getElementById('gh-repo').value.trim(),
+    token:  document.getElementById('gh-token').value.trim(),
+    branch: document.getElementById('gh-branch').value.trim() || 'main'
+  };
+  if (!cfg.owner || !cfg.repo || !cfg.token) {
+    toast('Please fill in Owner, Repository and Token'); return;
+  }
+  ghSave(cfg);
+  toast('GitHub settings saved on this device ✓');
+}
+
+// ─────────────────────────────────────────────
+// AUTO-SAVE  — pushes family.fam to GitHub via Contents API
 // ─────────────────────────────────────────────
 let autoSaveTimer = null;
+let famSha = null;   // GitHub blob SHA of current family.fam — needed for updates
+
+async function getFamSha(cfg) {
+  // Returns the SHA of the current family.fam on GitHub (needed to update it)
+  const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/family.fam?ref=${cfg.branch}`;
+  const r = await fetch(url, { headers: { Authorization: `token ${cfg.token}`, Accept: 'application/vnd.github+json' } });
+  if (!r.ok) return null;
+  const data = await r.json();
+  return data.sha || null;
+}
+
+async function pushToGitHub(content) {
+  const cfg = ghConfig();
+  if (!cfg.owner || !cfg.repo || !cfg.token) return false;   // no config — silent skip
+
+  // Get current SHA if we don't have it
+  if (!famSha) famSha = await getFamSha(cfg);
+
+  const body = {
+    message: 'Family Chronicle auto-save ' + new Date().toISOString(),
+    content: btoa(unescape(encodeURIComponent(content))),   // base64 encode UTF-8 safely
+    branch:  cfg.branch || 'main'
+  };
+  if (famSha) body.sha = famSha;   // required for update; omit only on first create
+
+  const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/family.fam`;
+  const r = await fetch(url, {
+    method: 'PUT',
+    headers: { Authorization: `token ${cfg.token}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  if (r.ok) {
+    const data = await r.json();
+    famSha = data.content?.sha || famSha;   // update SHA for next save
+    return true;
+  }
+  const err = await r.json().catch(()=>({}));
+  console.error('GitHub push failed:', err);
+  return false;
+}
 
 function autoSave() {
   clearTimeout(autoSaveTimer);
   showAutoSave('saving');
   autoSaveTimer = setTimeout(async () => {
     try {
-      const enc = await encrypt(db, readPassword);
-      famContent = JSON.stringify({ enc, v:1, updated: new Date().toISOString() });
-      showAutoSave('saved');
+      const enc     = await encrypt(db, readPassword);
+      const content = JSON.stringify({ enc, v:1, updated: new Date().toISOString() });
+      famContent    = content;   // update in-memory copy
+
+      const cfg = ghConfig();
+      if (cfg.owner && cfg.repo && cfg.token) {
+        const ok = await pushToGitHub(content);
+        if (ok) { showAutoSave('saved', 'Saved to GitHub ✓'); }
+        else    { showAutoSave('warn',  '⚠ GitHub save failed — download family.fam manually'); }
+      } else {
+        // No GitHub config — just keep in memory, remind admin to download
+        showAutoSave('warn', '⚠ No GitHub config — changes in memory only');
+      }
     } catch(e) {
-      showAutoSave('');
+      showAutoSave('warn', '⚠ Save error: ' + e.message);
     }
-  }, 600);
+  }, 800);
 }
 
-function showAutoSave(state) {
+function showAutoSave(state, msg) {
   const el = document.getElementById('autosave-indicator');
   el.className = state;
-  if (state === 'saving') el.textContent = '💾 Saving…';
-  else if (state === 'saved') { el.textContent = '✓ Saved'; setTimeout(()=>{ el.className=''; }, 3000); }
+  if (state === 'saving') { el.textContent = '💾 Saving…'; el.style.opacity='1'; }
+  else if (state === 'saved') {
+    el.textContent = msg || '✓ Saved';
+    el.style.opacity='1';
+    setTimeout(()=>{ el.style.opacity='0'; }, 4000);
+  } else if (state === 'warn') {
+    el.textContent = msg || '⚠ Not saved';
+    el.style.opacity='1';
+    el.style.color='#d4a060';
+    setTimeout(()=>{ el.style.color=''; el.style.opacity='0'; }, 6000);
+  }
 }
 
 // ─────────────────────────────────────────────
-// DOWNLOAD  family.fam
+// DOWNLOAD  family.fam  (fallback / backup)
 // ─────────────────────────────────────────────
 async function downloadFam() {
   try {
@@ -969,7 +1112,7 @@ async function downloadFam() {
     const a    = document.createElement('a');
     a.href=url; a.download='family.fam'; a.click();
     URL.revokeObjectURL(url);
-    toast('Downloaded family.fam — upload this to your GitHub repository');
+    toast('Downloaded family.fam — upload to your GitHub repository to publish');
   } catch(e) { toast('Download failed: '+e.message); }
 }
 
@@ -995,10 +1138,10 @@ async function changeReadPassword() {
   if (np.length < 4) { toast('Password must be at least 4 characters'); return; }
   const np2 = prompt('Confirm new read-only password:');
   if (np !== np2) { toast('Passwords did not match'); return; }
-  db.readHash = simpleHash(np);
+  db.readHash  = simpleHash(np);
   readPassword = np;
   autoSave();
-  toast('Read-only password updated — download family.fam to publish the change');
+  toast('Read-only password updated and saving…');
 }
 
 async function changeAdminPassword() {
@@ -1012,7 +1155,7 @@ async function changeAdminPassword() {
   if (np !== np2) { toast('Passwords did not match'); return; }
   db.adminHash = simpleHash(np);
   autoSave();
-  toast('Admin password updated — download family.fam to publish the change');
+  toast('Admin password updated and saving…');
 }
 
 function clearAll() {
