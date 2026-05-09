@@ -612,58 +612,74 @@ let currentPhotoData = null;
 // LOCK SCREEN  — fetch family.fam automatically
 // ─────────────────────────────────────────────
 let famContent = null;  // raw text of family.fam
+let famLoading = null;  // Promise — resolves when file is ready
 
 async function loadFamFile() {
-  try {
-    // Try GitHub API first (gets SHA at same time — needed for updates)
-    const cfg = ghConfig();
-    if (cfg.owner && cfg.repo && cfg.token) {
-      const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/family.fam?ref=${cfg.branch||'main'}`;
-      const r   = await fetch(url, { headers: { Authorization: `token ${cfg.token}`, Accept: 'application/vnd.github+json' } });
-      if (r.ok) {
-        const data = await r.json();
-        famSha     = data.sha;
-        famContent = atob(data.content.replace(/\n/g,''));
-        return;
+  famLoading = (async () => {
+    try {
+      // Try GitHub API only if config already saved in localStorage
+      let cfg = {};
+      try { cfg = JSON.parse(localStorage.getItem('fc_gh') || '{}'); } catch(e) {}
+
+      if (cfg.owner && cfg.repo && cfg.token) {
+        const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/family.fam?ref=${cfg.branch||'main'}`;
+        const r   = await fetch(url, {
+          headers: { Authorization: `token ${cfg.token}`, Accept: 'application/vnd.github+json' }
+        });
+        if (r.ok) {
+          const data = await r.json();
+          famSha     = data.sha;
+          famContent = atob(data.content.replace(/\n/g,''));
+          return;
+        }
       }
+      // Fallback: plain relative fetch (works on GitHub Pages)
+      const resp = await fetch('family.fam', { cache: 'no-store' });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      famContent = await resp.text();
+    } catch(e) {
+      famContent = null;
+      console.warn('loadFamFile failed:', e.message);
     }
-    // Fallback: plain fetch (no SHA, pushes will do a fresh GET first)
-    const resp = await fetch('family.fam', { cache:'no-store' });
-    if (!resp.ok) throw new Error('not found');
-    famContent = await resp.text();
-  } catch(e) {
-    famContent = null;
-  }
+  })();
+  return famLoading;
 }
 
 async function openChronicle() {
   const err  = document.getElementById('open-error');
   const pass = document.getElementById('open-pass').value;
   if (!pass) { err.textContent = 'Please enter your password.'; return; }
-  err.textContent = 'Opening…';
+  err.textContent = 'Loading…';
+
+  // Wait for the file fetch to finish before attempting decrypt
+  if (famLoading) await famLoading;
+
   try {
-    if (!famContent) throw new Error('family.fam not found in the same folder as this page.');
-    const parsed = JSON.parse(famContent);
-    if (!parsed.enc) throw new Error('Invalid database file.');
-    // Try as read-only password first, then admin password
-    let decrypted = null;
+    if (!famContent) {
+      err.textContent = 'Could not load family.fam — check it is uploaded to the same repository folder as index.html.';
+      return;
+    }
+    let parsed;
+    try { parsed = JSON.parse(famContent); }
+    catch(e) { err.textContent = 'Database file is corrupted (invalid JSON).'; return; }
+
+    if (!parsed.enc) { err.textContent = 'Database file is missing encrypted data.'; return; }
+
+    let decrypted;
     try {
       decrypted = await decrypt(parsed.enc, pass);
     } catch(e) {
-      throw new Error('Incorrect password or corrupted file.');
+      err.textContent = 'Incorrect password — please try again.';
+      return;
     }
+
     db = decrypted;
     readPassword = pass;
-    // Check if this password matches the admin hash → auto-grant admin
-    if (db.adminHash && simpleHash(pass) === db.adminHash) {
-      adminUnlocked = true;
-    } else {
-      adminUnlocked = false;
-    }
+    adminUnlocked = !!(db.adminHash && simpleHash(pass) === db.adminHash);
     err.textContent = '';
     launchApp();
   } catch(e) {
-    err.textContent = e.message;
+    err.textContent = 'Unexpected error: ' + e.message;
   }
 }
 
@@ -1353,9 +1369,21 @@ document.addEventListener('keydown', e => {
 });
 
 // ─────────────────────────────────────────────
-// BOOT  — fetch family.fam, then show lock screen
+// BOOT  — fetch family.fam (all functions defined above this point)
 // ─────────────────────────────────────────────
-loadFamFile();
+(async () => {
+  const btn = document.querySelector('#lock-screen .btn-primary');
+  if (btn) { btn.textContent = 'Loading…'; btn.disabled = true; }
+  await loadFamFile();
+  if (btn) {
+    btn.textContent = 'Open Chronicle';
+    btn.disabled    = false;
+    if (!famContent) {
+      document.getElementById('open-error').textContent =
+        'Warning: family.fam could not be loaded. Check your repository has the file uploaded.';
+    }
+  }
+})();
 </script>
 </body>
 </html>
