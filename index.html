@@ -362,7 +362,7 @@ async function loadFamFile(){
       if(cfg.owner&&cfg.repo&&cfg.token){
         const url=`https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/family.fam?ref=${cfg.branch||'main'}`;
         const r=await fetch(url,{headers:{Authorization:`token ${cfg.token}`,Accept:'application/vnd.github+json'}});
-        if(r.ok){const d=await r.json();famSha=d.sha;famContent=atob(d.content.replace(/\n/g,''));return;}
+        if(r.ok){const d=await r.json();famSha=d.sha;const bytes=Uint8Array.from(atob(d.content.replace(/\n/g,'')),c=>c.charCodeAt(0));famContent=new TextDecoder('utf-8').decode(bytes);return;}
       }
       // Plain relative fetch — works on GitHub Pages
       const r=await fetch('family.fam',{cache:'no-store'});
