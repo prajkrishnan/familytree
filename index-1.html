@@ -48,21 +48,8 @@ input[type="date"]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.6;
 #autosave-indicator{font-size:11px;font-style:italic;font-family:'Crimson Text',serif;opacity:0;transition:opacity .5s;}
 .panel{display:none;padding:32px;}
 .panel.active{display:block;}
-#panel-tree{display:none;flex-direction:column;height:calc(100vh - 54px);padding:0!important;}
-#panel-tree.active{display:flex;}
-#tree-toolbar{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--parchment);border-bottom:1px solid var(--border);flex-shrink:0;}
-#tree-toolbar .tree-zoom-btn{background:var(--parchment-dark);border:1px solid var(--border);color:var(--ink-light);width:30px;height:30px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:2px;transition:all .15s;font-family:monospace;line-height:1;}
-#tree-toolbar .tree-zoom-btn:hover{background:var(--sepia-pale);color:var(--ink);}
-#tree-toolbar .tree-zoom-label{font-family:'Crimson Text',serif;font-size:13px;color:var(--ink-faded);min-width:42px;text-align:center;}
-#tree-toolbar .tree-toolbar-hint{font-family:'Crimson Text',serif;font-size:13px;color:var(--ink-faded);font-style:italic;margin-left:auto;}
-#tree-container{flex:1;background:var(--parchment);overflow:hidden;position:relative;cursor:grab;}
-#tree-container:active{cursor:grabbing;}
-#tree-container.dragging{cursor:grabbing;}
-#tree-svg{display:block;transform-origin:0 0;will-change:transform;user-select:none;}
-.tree-node-group rect{transition:filter .15s;}
-.tree-node-group:hover rect{filter:brightness(.93);}
-/* Empty state inside panel */
-#tree-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+#tree-container{background:var(--parchment);border:1px solid var(--border);border-radius:2px;min-height:500px;overflow:auto;position:relative;}
+#tree-svg{display:block;}
 .section-header{display:flex;align-items:baseline;gap:16px;margin-bottom:24px;padding-bottom:12px;border-bottom:1px solid var(--border);}
 .section-title{font-family:'Playfair Display',serif;font-size:26px;color:var(--ink);font-weight:700;}
 .section-count{font-size:14px;color:var(--ink-faded);font-style:italic;}
@@ -161,19 +148,12 @@ input[type="date"]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.6;
   </div>
 
   <!-- Tree -->
-  <div class="panel active" id="panel-tree">
+  <div class="panel active" id="panel-tree" style="padding:24px;">
     <div id="tree-empty" class="empty-state" style="display:none">
       <div class="empty-state-icon">🌳</div>
       <div class="empty-state-title">Your family tree is empty</div>
       <p style="margin-bottom:20px">Add your first family member to begin</p>
       <button class="btn-primary" style="display:inline-block;width:auto;padding:12px 32px" onclick="requestAdmin('addmember')">Add First Member</button>
-    </div>
-    <div id="tree-toolbar" style="display:none">
-      <button class="tree-zoom-btn" id="zoom-in-btn" title="Zoom in">+</button>
-      <span class="tree-zoom-label" id="zoom-label">100%</span>
-      <button class="tree-zoom-btn" id="zoom-out-btn" title="Zoom out">−</button>
-      <button class="tree-zoom-btn" id="zoom-fit-btn" title="Fit to screen" style="width:auto;padding:0 10px;font-family:'Crimson Text',serif;font-size:12px;letter-spacing:.5px;">Fit</button>
-      <span class="tree-toolbar-hint">Drag to pan · Scroll to zoom</span>
     </div>
     <div id="tree-container" style="display:none"><svg id="tree-svg"></svg></div>
   </div>
@@ -509,23 +489,15 @@ function hexMix(h1,h2,t){
 }
 
 // ── RENDER TREE ──────────────────────────────────────────
-let treeZoom=1,treePanX=0,treePanY=0;
-let treeSvgW=0,treeSvgH=0;
-
 function renderTree(){
   const svg=document.getElementById('tree-svg');
   const empty=document.getElementById('tree-empty');
   const cont=document.getElementById('tree-container');
-  const toolbar=document.getElementById('tree-toolbar');
-  if(!db.people.length){
-    svg.innerHTML='';
-    empty.style.display='flex';empty.style.flexDirection='column';
-    cont.style.display='none';toolbar.style.display='none';
-    return;
-  }
-  empty.style.display='none';cont.style.display='block';toolbar.style.display='flex';
+  if(!db.people.length){svg.innerHTML='';empty.style.display='block';cont.style.display='none';return;}
+  empty.style.display='none';cont.style.display='block';
 
   const byId={};db.people.forEach(p=>{byId[p.id]=p;});
+  // Ensure spouse links are bidirectional
   db.people.forEach(p=>{if(p.spouse&&byId[p.spouse]&&!byId[p.spouse].spouse)byId[p.spouse].spouse=p.id;});
 
   // Assign generation numbers
@@ -555,29 +527,20 @@ function renderTree(){
     ordG[g]=order;
   }
 
-  // Node dimensions — generous for readability
-  const NW=180,NH=72,HG=40,CG=10,VG=100;
-  const PAD=60;
+  const NW=160,NH=64,HG=28,CG=8,VG=86;
   const positions={};
-
   function rowPx(g){
-    const ids=ordG[g]||[];if(!ids.length)return 0;
-    let w=0;
+    const ids=ordG[g]||[];let w=0;
     for(let i=0;i<ids.length;i++){
       w+=NW;
       if(i<ids.length-1){const adj=byId[ids[i]]?.spouse===ids[i+1]||byId[ids[i+1]]?.spouse===ids[i];w+=adj?CG:HG;}
     }
     return w;
   }
-
-  const contentW=Math.max(NW+PAD*2,...Array.from({length:maxG+1},(_,g)=>rowPx(g)+PAD*2));
-  const contentH=(maxG+1)*(NH+VG)-VG+PAD*2;
-  treeSvgW=contentW;treeSvgH=contentH;
-
+  const svgW=Math.max(900,...Array.from({length:maxG+1},(_,g)=>rowPx(g)+80));
+  const svgH=(maxG+1)*(NH+VG)+60;
   for(let g=0;g<=maxG;g++){
-    const ids=ordG[g]||[];
-    let x=(contentW-rowPx(g))/2;
-    const y=g*(NH+VG)+PAD;
+    const ids=ordG[g]||[];let x=(svgW-rowPx(g))/2;const y=g*(NH+VG)+40;
     for(let i=0;i<ids.length;i++){
       positions[ids[i]]={x,y,g};
       const adj=ids[i+1]&&(byId[ids[i]]?.spouse===ids[i+1]||byId[ids[i+1]]?.spouse===ids[i]);
@@ -592,12 +555,8 @@ function renderTree(){
     if(!p.spouse||!positions[p.spouse]||!positions[p.id])return;
     const key=[p.id,p.spouse].sort().join('|');
     if(drawnSp.has(key))return;drawnSp.add(key);
-    const a=positions[p.id],b=positions[p.spouse];
-    const col=gc(a.g),midY=a.y+NH/2;
-    lines+=`<line x1="${a.x+NW}" y1="${midY}" x2="${b.x}" y2="${midY}" stroke="${col.stroke}" stroke-width="2" stroke-dasharray="7,4" opacity=".65"/>`;
-    // Heart at midpoint
-    const mx=(a.x+NW+b.x)/2;
-    lines+=`<text x="${mx}" y="${midY+5}" text-anchor="middle" font-size="12" opacity=".5">♥</text>`;
+    const a=positions[p.id],b=positions[p.spouse],col=gc(a.g),y=a.y+NH/2;
+    lines+=`<line x1="${a.x+NW}" y1="${y}" x2="${b.x}" y2="${y}" stroke="${col.stroke}" stroke-width="1.5" stroke-dasharray="6,3" opacity=".7"/>`;
   });
   // Parent→child T-bar connectors
   const byPair={};
@@ -621,14 +580,13 @@ function renderTree(){
     else return;
     const parY=positions[parents[0]].y+NH;
     const childY=positions[children[0]].y;
-    const dropY=parY+(childY-parY)*0.5;
+    const dropY=parY+(childY-parY)*0.45;
     const childXs=children.map(id=>positions[id].x+NW/2);
     const barL=Math.min(parMidX,...childXs),barR=Math.max(parMidX,...childXs);
-    lines+=`<line x1="${parMidX}" y1="${parY+2}" x2="${parMidX}" y2="${dropY}" stroke="${col.stroke}" stroke-width="2" opacity=".7"/>`;
-    if(barL<barR)lines+=`<line x1="${barL}" y1="${dropY}" x2="${barR}" y2="${dropY}" stroke="${col.stroke}" stroke-width="2" opacity=".7"/>`;
-    children.forEach(id=>{const cx=positions[id].x+NW/2;lines+=`<line x1="${cx}" y1="${dropY}" x2="${cx}" y2="${childY-2}" stroke="${col.stroke}" stroke-width="2" opacity=".7"/>`;});
+    lines+=`<line x1="${parMidX}" y1="${parY}" x2="${parMidX}" y2="${dropY}" stroke="${col.stroke}" stroke-width="2" opacity=".85"/>`;
+    if(barL<barR)lines+=`<line x1="${barL}" y1="${dropY}" x2="${barR}" y2="${dropY}" stroke="${col.stroke}" stroke-width="2" opacity=".85"/>`;
+    children.forEach(id=>{const cx=positions[id].x+NW/2;lines+=`<line x1="${cx}" y1="${dropY}" x2="${cx}" y2="${childY}" stroke="${col.stroke}" stroke-width="2" opacity=".85"/>`;});
   });
-
   // Nodes
   let nodes='';
   db.people.forEach(p=>{
@@ -641,126 +599,12 @@ function renderTree(){
     if(p.gender==='female')fill=hexMix(col.fill,'#fce8f0',.35);
     if(p.gender==='male')fill=hexMix(col.fill,'#e8f0fc',.35);
     const click=adminUnlocked?`onclick="requestAdmin('edit:${p.id}')" style="cursor:pointer"`:'';
-    // Truncate name for display
-    const displayName=name.length>22?name.slice(0,20)+'…':name;
-    const cx=pos.x+NW/2;
-    nodes+=`<g class="tree-node-group" ${click}>
-      <rect x="${pos.x}" y="${pos.y}" width="${NW}" height="${NH}" rx="6" fill="${fill}" stroke="${col.stroke}" stroke-width="1.5"/>
-      <text font-family="'Playfair Display',Georgia,serif" font-size="13.5" font-weight="600" fill="${col.text}"
-        x="${cx}" y="${pos.y+(years?NH/2-9:NH/2+1)}" text-anchor="middle" dominant-baseline="middle">${esc(displayName)}</text>
-      ${years?`<text font-family="'Crimson Text',Georgia,serif" font-size="11.5" font-style="italic" fill="${col.stroke}" opacity=".9"
-        x="${cx}" y="${pos.y+NH/2+14}" text-anchor="middle">${esc(years)}</text>`:''}
-    </g>`;
+    nodes+=`<g class="tree-node-group" ${click}><rect x="${pos.x}" y="${pos.y}" width="${NW}" height="${NH}" rx="5" fill="${fill}" stroke="${col.stroke}" stroke-width="1.5"/><text font-family="Playfair Display,serif" font-size="13" font-weight="600" fill="${col.text}" x="${pos.x+NW/2}" y="${pos.y+NH/2-(years?9:0)}" text-anchor="middle" dominant-baseline="middle">${esc(name.length>20?name.slice(0,18)+'…':name)}</text>${years?`<text font-family="Crimson Text,serif" font-size="11" font-style="italic" fill="${col.stroke}" x="${pos.x+NW/2}" y="${pos.y+NH/2+13}" text-anchor="middle">${esc(years)}</text>`:''}</g>`;
   });
 
-  svg.setAttribute('width',contentW);
-  svg.setAttribute('height',contentH);
-  svg.setAttribute('viewBox',`0 0 ${contentW} ${contentH}`);
-  svg.innerHTML=`<rect width="${contentW}" height="${contentH}" fill="var(--parchment)"/>` + lines + nodes;
-
-  // Fit tree to container on first render
-  fitTree();
+  svg.setAttribute('width',svgW);svg.setAttribute('height',svgH);svg.setAttribute('viewBox',`0 0 ${svgW} ${svgH}`);
+  svg.innerHTML=lines+nodes;
 }
-
-function fitTree(){
-  const cont=document.getElementById('tree-container');
-  const svg=document.getElementById('tree-svg');
-  if(!treeSvgW||!treeSvgH)return;
-  const cw=cont.clientWidth||cont.offsetWidth;
-  const ch=cont.clientHeight||cont.offsetHeight;
-  const scale=Math.min(1, (cw-40)/treeSvgW, (ch-40)/treeSvgH);
-  treeZoom=Math.max(0.15,Math.min(scale,2));
-  treePanX=(cw-treeSvgW*treeZoom)/2;
-  treePanY=Math.max(20,(ch-treeSvgH*treeZoom)/2);
-  applyTreeTransform();
-}
-
-function applyTreeTransform(){
-  const svg=document.getElementById('tree-svg');
-  svg.style.transform=`translate(${treePanX}px,${treePanY}px) scale(${treeZoom})`;
-  const label=document.getElementById('zoom-label');
-  if(label)label.textContent=Math.round(treeZoom*100)+'%';
-}
-
-// ── TREE PAN / ZOOM ──────────────────────────────────────
-(function initTreeInteraction(){
-  let dragging=false,startX=0,startY=0,startPX=0,startPY=0;
-  document.addEventListener('DOMContentLoaded',()=>{
-    const cont=document.getElementById('tree-container');
-    // Mouse drag
-    cont.addEventListener('mousedown',e=>{
-      if(e.button!==0)return;
-      dragging=true;startX=e.clientX;startY=e.clientY;startPX=treePanX;startPY=treePanY;
-      cont.classList.add('dragging');e.preventDefault();
-    });
-    document.addEventListener('mousemove',e=>{
-      if(!dragging)return;
-      treePanX=startPX+(e.clientX-startX);treePanY=startPY+(e.clientY-startY);applyTreeTransform();
-    });
-    document.addEventListener('mouseup',()=>{dragging=false;document.getElementById('tree-container').classList.remove('dragging');});
-    // Wheel zoom
-    cont.addEventListener('wheel',e=>{
-      e.preventDefault();
-      const rect=cont.getBoundingClientRect();
-      const mx=e.clientX-rect.left,my=e.clientY-rect.top;
-      const factor=e.deltaY<0?1.12:1/1.12;
-      const newZ=Math.max(0.15,Math.min(treeZoom*factor,3));
-      treePanX=mx-(mx-treePanX)*(newZ/treeZoom);
-      treePanY=my-(my-treePanY)*(newZ/treeZoom);
-      treeZoom=newZ;applyTreeTransform();
-    },{passive:false});
-    // Touch pan
-    let touches={};
-    cont.addEventListener('touchstart',e=>{
-      Array.from(e.changedTouches).forEach(t=>{touches[t.identifier]={x:t.clientX,y:t.clientY};});
-    },{passive:true});
-    cont.addEventListener('touchmove',e=>{
-      e.preventDefault();
-      const arr=Array.from(e.touches);
-      if(arr.length===1){
-        const t=arr[0],prev=touches[t.identifier];
-        if(prev){treePanX+=t.clientX-prev.x;treePanY+=t.clientY-prev.y;applyTreeTransform();}
-        touches[t.identifier]={x:t.clientX,y:t.clientY};
-      } else if(arr.length===2){
-        const [t1,t2]=arr;
-        const p1=touches[t1.identifier]||{x:t1.clientX,y:t1.clientY};
-        const p2=touches[t2.identifier]||{x:t2.clientX,y:t2.clientY};
-        const prevDist=Math.hypot(p1.x-p2.x,p1.y-p2.y);
-        const newDist=Math.hypot(t1.clientX-t2.clientX,t1.clientY-t2.clientY);
-        if(prevDist>0){
-          const factor=newDist/prevDist;
-          const rect=document.getElementById('tree-container').getBoundingClientRect();
-          const mx=((t1.clientX+t2.clientX)/2)-rect.left,my=((t1.clientY+t2.clientY)/2)-rect.top;
-          const newZ=Math.max(0.15,Math.min(treeZoom*factor,3));
-          treePanX=mx-(mx-treePanX)*(newZ/treeZoom);
-          treePanY=my-(my-treePanY)*(newZ/treeZoom);
-          treeZoom=newZ;applyTreeTransform();
-        }
-        touches[t1.identifier]={x:t1.clientX,y:t1.clientY};
-        touches[t2.identifier]={x:t2.clientX,y:t2.clientY};
-      }
-    },{passive:false});
-    cont.addEventListener('touchend',e=>{Array.from(e.changedTouches).forEach(t=>{delete touches[t.identifier];});});
-    // Toolbar buttons
-    document.getElementById('zoom-in-btn').addEventListener('click',()=>{
-      const cont=document.getElementById('tree-container');
-      const mx=cont.offsetWidth/2,my=cont.offsetHeight/2;
-      const newZ=Math.min(treeZoom*1.25,3);
-      treePanX=mx-(mx-treePanX)*(newZ/treeZoom);treePanY=my-(my-treePanY)*(newZ/treeZoom);
-      treeZoom=newZ;applyTreeTransform();
-    });
-    document.getElementById('zoom-out-btn').addEventListener('click',()=>{
-      const cont=document.getElementById('tree-container');
-      const mx=cont.offsetWidth/2,my=cont.offsetHeight/2;
-      const newZ=Math.max(treeZoom/1.25,0.15);
-      treePanX=mx-(mx-treePanX)*(newZ/treeZoom);treePanY=my-(my-treePanY)*(newZ/treeZoom);
-      treeZoom=newZ;applyTreeTransform();
-    });
-    document.getElementById('zoom-fit-btn').addEventListener('click',fitTree);
-    // Refit on window resize
-    window.addEventListener('resize',()=>{if(treeSvgW)fitTree();});
-  });
-})();
 
 // ── MODAL ────────────────────────────────────────────────
 function openAddModal(){
