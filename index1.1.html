@@ -556,7 +556,7 @@ function renderTree(){
   }
 
   // Node dimensions — generous for readability
-  const NW=180,NH=72,HG=40,CG=10,VG=120;
+  const NW=180,NH=72,HG=40,CG=10,VG=100;
   const PAD=60;
   const positions={};
 
@@ -599,75 +599,34 @@ function renderTree(){
     const mx=(a.x+NW+b.x)/2;
     lines+=`<text x="${mx}" y="${midY+5}" text-anchor="middle" font-size="12" opacity=".5">♥</text>`;
   });
-
   // Parent→child T-bar connectors
-  // Build a map keyed by EXACT parent pair (both IDs sorted), not by string with empty
   const byPair={};
   db.people.forEach(p=>{
     if(!positions[p.id])return;
-    const fa=p.father&&positions[p.father]?p.father:null;
-    const mo=p.mother&&positions[p.mother]?p.mother:null;
+    const fa=p.father&&positions[p.father]?p.father:'';
+    const mo=p.mother&&positions[p.mother]?p.mother:'';
     if(!fa&&!mo)return;
-    // Key uniquely identifies this exact parent combination
-    const key=[fa||'',mo||''].sort().join('§');
+    const key=[fa,mo].sort().join('|');
     if(!byPair[key])byPair[key]={parents:[],children:[]};
     if(fa&&!byPair[key].parents.includes(fa))byPair[key].parents.push(fa);
     if(mo&&!byPair[key].parents.includes(mo))byPair[key].parents.push(mo);
     byPair[key].children.push(p.id);
   });
-
-  // Assign unique dropY offsets so sibling groups from different parent pairs
-  // in the same generation don't share the same horizontal bar Y
-  // Group pairs by child generation row
-  const pairsByChildGen={};
-  Object.entries(byPair).forEach(([key,{children}])=>{
-    const childGen=genMap[children[0]];
-    if(!pairsByChildGen[childGen])pairsByChildGen[childGen]=[];
-    pairsByChildGen[childGen].push(key);
-  });
-
-  Object.values(byPair).forEach(({parents,children},pairIdx)=>{
+  Object.values(byPair).forEach(({parents,children})=>{
     if(!children.length)return;
-    const childGen=genMap[children[0]];
-    const pairsInRow=pairsByChildGen[childGen]||[];
-    const myIndexInRow=pairsInRow.findIndex(k=>{
-      const d=byPair[k];
-      return d.children[0]===children[0]||
-             (d.parents.every(id=>parents.includes(id))&&parents.every(id=>d.parents.includes(id)));
-    });
-
-    const col=gc(childGen);
+    const col=gc(genMap[children[0]]);
     let parMidX;
-    if(parents.length===2){
-      const pa=positions[parents[0]],pb=positions[parents[1]];
-      parMidX=(pa.x+NW/2+pb.x+NW/2)/2;
-    } else if(parents.length===1){
-      parMidX=positions[parents[0]].x+NW/2;
-    } else return;
-
+    if(parents.length===2){const pa=positions[parents[0]],pb=positions[parents[1]];parMidX=(pa.x+NW/2+pb.x+NW/2)/2;}
+    else if(parents.length===1){parMidX=positions[parents[0]].x+NW/2;}
+    else return;
     const parY=positions[parents[0]].y+NH;
     const childY=positions[children[0]].y;
-    const totalDrop=childY-parY;
-
-    // Stagger dropY: evenly space multiple sibling groups between parent and child rows
-    // Use 40% base + small per-index offset so bars don't overlap
-    const numPairs=pairsInRow.length;
-    const dropFraction= numPairs<=1 ? 0.5 : 0.35 + (myIndexInRow/(numPairs-1))*0.3;
-    const dropY=parY+totalDrop*dropFraction;
-
+    const dropY=parY+(childY-parY)*0.5;
     const childXs=children.map(id=>positions[id].x+NW/2);
-    const barL=Math.min(parMidX,...childXs);
-    const barR=Math.max(parMidX,...childXs);
-
-    // Vertical stem from parent down to dropY
-    lines+=`<line x1="${parMidX}" y1="${parY+2}" x2="${parMidX}" y2="${dropY}" stroke="${col.stroke}" stroke-width="2" opacity=".75"/>`;
-    // Horizontal bar at dropY
-    if(barL<barR)lines+=`<line x1="${barL}" y1="${dropY}" x2="${barR}" y2="${dropY}" stroke="${col.stroke}" stroke-width="2" opacity=".75"/>`;
-    // Vertical drops from bar to each child
-    children.forEach(id=>{
-      const cx=positions[id].x+NW/2;
-      lines+=`<line x1="${cx}" y1="${dropY}" x2="${cx}" y2="${childY-2}" stroke="${col.stroke}" stroke-width="2" opacity=".75"/>`;
-    });
+    const barL=Math.min(parMidX,...childXs),barR=Math.max(parMidX,...childXs);
+    lines+=`<line x1="${parMidX}" y1="${parY+2}" x2="${parMidX}" y2="${dropY}" stroke="${col.stroke}" stroke-width="2" opacity=".7"/>`;
+    if(barL<barR)lines+=`<line x1="${barL}" y1="${dropY}" x2="${barR}" y2="${dropY}" stroke="${col.stroke}" stroke-width="2" opacity=".7"/>`;
+    children.forEach(id=>{const cx=positions[id].x+NW/2;lines+=`<line x1="${cx}" y1="${dropY}" x2="${cx}" y2="${childY-2}" stroke="${col.stroke}" stroke-width="2" opacity=".7"/>`;});
   });
 
   // Nodes
