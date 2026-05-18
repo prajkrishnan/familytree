@@ -411,27 +411,11 @@ async function openChronicle(){
     catch(e){errEl.textContent='Database file is corrupted (invalid JSON).';btn.disabled=false;btn.textContent='Open Chronicle';return;}
     if(!parsed.enc){errEl.textContent='Database file has no encrypted data.';btn.disabled=false;btn.textContent='Open Chronicle';return;}
     let decrypted;
-    let migratedFromEmptyPw=false;
     try{decrypted=await decrypt(parsed.enc,pass);}
-    catch(e){
-      // Fallback: an earlier version may have auto-saved with an empty string password.
-      // Try decrypting with '' and if it succeeds, immediately re-save with the real password.
-      try{decrypted=await decrypt(parsed.enc,'');migratedFromEmptyPw=true;}
-      catch(e2){errEl.textContent='Incorrect password — please try again.';btn.disabled=false;btn.textContent='Open Chronicle';return;}
-    }
+    catch(e){errEl.textContent='Incorrect password — please try again.';btn.disabled=false;btn.textContent='Open Chronicle';return;}
     db=decrypted;readPassword=pass;
     adminUnlocked=!!(db.adminHash&&simpleHash(pass)===db.adminHash);
-    errEl.textContent='';
-    if(migratedFromEmptyPw){
-      // Re-encrypt immediately with the real password so the file is correct going forward
-      try{
-        const enc=await encrypt(db,pass);
-        const content=JSON.stringify({enc,v:1,updated:new Date().toISOString()});
-        famContent=content;
-        await pushToGitHub(content);
-      }catch(_){}
-    }
-    launchApp();
+    errEl.textContent='';launchApp();
   }catch(e){errEl.textContent='Unexpected error: '+e.message;btn.disabled=false;btn.textContent='Open Chronicle';}
 }
 
