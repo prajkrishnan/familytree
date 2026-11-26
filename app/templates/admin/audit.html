@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Audit log · {{ site_title }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="eyebrow">Administration</p>
+    <h1>Audit log</h1>
+    <p class="muted">Every change, approval and account action, newest first.</p>
+  </div>
+</div>
+{% include "admin/_nav.html" %}
+
+<section class="card">
+  {% if not events %}
+    <p class="muted">No activity yet.</p>
+  {% else %}
+    <div class="table-wrap">
+      <table class="data-table audit-table">
+        <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Record</th><th>IP</th></tr></thead>
+        <tbody>
+          {% for e in events %}
+            <tr>
+              <td class="nowrap">{{ e.created_at|rel_time }}</td>
+              <td>{{ e.actor_name or 'System' }}</td>
+              <td><code>{{ e.action }}</code></td>
+              <td class="small muted">{{ e.entity_type }}{% if e.entity_id %} · {{ e.entity_id[:10] }}…{% endif %}</td>
+              <td class="small muted">{{ e.ip or '—' }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

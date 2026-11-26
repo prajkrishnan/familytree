@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Invitation · {{ site_title }}{% endblock %}
+{% block bodyclass %}auth-page{% endblock %}
+{% block mainclass %}auth-main{% endblock %}
+{% block content %}
+<section class="auth-card auth-card-wide">
+  {% if invalid %}
+    <h1>Invite not available</h1>
+    <p class="muted">This invite link is invalid, has expired, or has already been used. Ask an administrator for a new one.</p>
+    <a class="btn btn-primary btn-block" href="/login">Back to sign in</a>
+  {% else %}
+    <p class="eyebrow">You are invited</p>
+    <h1>Join {{ site_title }}</h1>
+    {% if person %}
+      <p class="muted">This invite is linked to <strong>{{ person|full_name }}</strong>. Your account will be connected to that record.</p>
+    {% endif %}
+    {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+    <form method="post" action="/invite/{{ token }}" class="stack">
+      <input type="hidden" name="_csrf" value="{{ csrf }}">
+      <label class="field"><span>Your name</span><input type="text" name="display_name" maxlength="120" value="{{ form.get('display_name', '') }}" required></label>
+      <label class="field"><span>Email</span><input type="email" name="email" autocomplete="username" value="{{ form.get('email', '') }}" required></label>
+      <label class="field"><span>Password</span><input type="password" name="password" minlength="12" autocomplete="new-password" required><small>At least 12 characters.</small></label>
+      <label class="field"><span>Confirm password</span><input type="password" name="confirm" autocomplete="new-password" required></label>
+      <button class="btn btn-primary btn-block" type="submit">Create my account</button>
+    </form>
+  {% endif %}
+</section>
+{% endblock %}

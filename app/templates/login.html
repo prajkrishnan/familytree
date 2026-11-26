@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Sign in · {{ site_title }}{% endblock %}
+{% block bodyclass %}auth-page{% endblock %}
+{% block mainclass %}auth-main{% endblock %}
+{% block content %}
+<section class="auth-card">
+  <div class="auth-brand">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v5M6 21v-4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v4M6 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm12 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM12 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    <h1>{{ site_title }}</h1>
+  </div>
+  <p class="muted">Sign in to view the family tree.</p>
+  {% if https_warning %}
+    <div class="alert alert-warn">
+      <strong>Setup problem:</strong> BASE_URL is an <code>https://</code> address, but this page was
+      loaded without HTTPS. Secure cookies are dropped in that case and sign-in cannot stick.
+      Set <code>BASE_URL</code> to the address you are using, and send <code>X-Forwarded-Proto</code>
+      from the reverse proxy.
+    </div>
+  {% endif %}
+  {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+  <form method="post" action="/login" class="stack">
+    <input type="hidden" name="_csrf" value="{{ csrf }}">
+    <input type="hidden" name="next" value="{{ next }}">
+    <label class="field">
+      <span>Email</span>
+      <input type="email" name="email" value="{{ email|default('') }}" autocomplete="username" required autofocus>
+    </label>
+    <label class="field">
+      <span>Password</span>
+      <input type="password" name="password" autocomplete="current-password" required>
+    </label>
+    <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+  </form>
+  <p class="auth-foot">New here? <a href="/register">Register or use an invite link</a>.</p>
+  <details class="auth-help">
+    <summary>Can't sign in?</summary>
+    <ol>
+      <li>Check the exact email address — passwords cannot be read back.</li>
+      <li>Eight wrong attempts lock the account for 15 minutes; wait, or ask an administrator.</li>
+      <li>An administrator can reset any account and list all accounts from the server:<br>
+        <code>docker compose exec app python -m app.manage list-users</code><br>
+        <code>docker compose exec app python -m app.manage reset-password --email you@example.com</code></li>
+    </ol>
+  </details>
+</section>
+{% endblock %}

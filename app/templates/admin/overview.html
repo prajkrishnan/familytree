@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Administration · {{ site_title }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="eyebrow">Administration</p>
+    <h1>Overview</h1>
+  </div>
+</div>
+{% include "admin/_nav.html" %}
+
+<div class="stat-grid">
+  <a class="stat-card" href="/admin/queue">
+    <span class="stat-label">Pending changes</span>
+    <span class="stat-value">{{ stats.pending_changes }}</span>
+    <span class="stat-hint">Awaiting review</span>
+  </a>
+  <a class="stat-card" href="/admin/users">
+    <span class="stat-label">Pending users</span>
+    <span class="stat-value">{{ stats.pending_users }}</span>
+    <span class="stat-hint">Registration requests</span>
+  </a>
+  <a class="stat-card" href="/tree">
+    <span class="stat-label">People</span>
+    <span class="stat-value">{{ stats.people }}</span>
+    <span class="stat-hint">{{ stats.unions }} families / partnerships</span>
+  </a>
+  <a class="stat-card" href="/admin/invites">
+    <span class="stat-label">Active invites</span>
+    <span class="stat-value">{{ stats.invites }}</span>
+    <span class="stat-hint">Unused, unexpired</span>
+  </a>
+</div>
+
+<section class="card">
+  <div class="section-head">
+    <h2>Recent activity</h2>
+    <a href="/admin/audit" class="small">Full audit log →</a>
+  </div>
+  {% if recent %}
+    <ul class="timeline">
+      {% for event in recent %}
+        <li>
+          <span class="timeline-dot"></span>
+          <div>
+            <p><strong>{{ event.actor_name or 'System' }}</strong> · {{ event.action }}
+              {% if event.entity_type %}<span class="muted">on {{ event.entity_type }}</span>{% endif %}
+            </p>
+            <small class="muted">{{ event.created_at|rel_time }}</small>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">No activity recorded yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

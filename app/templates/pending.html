@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Awaiting approval · {{ site_title }}{% endblock %}
+{% block bodyclass %}auth-page{% endblock %}
+{% block mainclass %}auth-main{% endblock %}
+{% block content %}
+<section class="auth-card">
+  <div class="empty-mark">⏳</div>
+  <h1>Thanks — you're almost in</h1>
+  <p class="muted">Your account <strong>{{ email }}</strong> has been created and is waiting for an administrator to approve it. Once approved, you can sign in and explore the tree.</p>
+  <a class="btn btn-primary btn-block" href="/login">Back to sign in</a>
+</section>
+{% endblock %}

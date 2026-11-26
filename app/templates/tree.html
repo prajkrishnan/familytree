@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Tree · {{ site_title }}{% endblock %}
+{% block bodyclass %}tree-page{% endblock %}
+{% block mainclass %}tree-main{% endblock %}
+{% block content %}
+<div id="tree-app"
+     data-focus="{{ focus_id }}"
+     data-open="{{ open_id }}"
+     data-root-person="{{ root_person_id }}"
+     data-self="{{ user_person_id }}"
+     data-admin="{{ '1' if is_admin else '0' }}"
+     data-has-people="{{ '1' if has_people else '0' }}">
+  <div class="tree-toolbar">
+    <div class="tree-search">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m16 16 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <input type="search" id="tree-search" placeholder="Search by name…" autocomplete="off" aria-label="Search for a person">
+      <div id="search-results" class="search-results" hidden></div>
+    </div>
+    <div class="tree-actions">
+      <button type="button" class="btn btn-sm" id="center-me" {% if not user_person_id %}hidden{% endif %}>Center on me</button>
+      <button type="button" class="btn btn-sm" id="full-tree" {% if not root_person_id %}hidden{% endif %}>Full tree</button>
+      <button type="button" class="btn btn-sm" id="expand-all">Expand all</button>
+      <button type="button" class="btn btn-sm" id="collapse-all">Collapse</button>
+      {% if is_admin %}
+        <a class="btn btn-sm btn-primary" href="/persons/new">+ Add person</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="tree-canvas" id="tree-canvas">
+    <div class="tree-stage" id="tree-stage">
+      <svg id="tree-links" aria-hidden="true"></svg>
+      <div id="tree-cards"></div>
+    </div>
+
+    <div class="tree-empty" id="tree-empty" {% if has_people %}hidden{% endif %}>
+      <div class="empty-mark">🌱</div>
+      <h1>The tree is empty</h1>
+      {% if is_admin %}
+        <p class="muted">Start by adding the founding patriarch or matriarch, then link their children, spouses and descendants.</p>
+        <div class="button-row centered">
+          <a class="btn btn-primary" href="/persons/new">Add the first person</a>
+          <a class="btn" href="/admin/settings">Set founding couple</a>
+        </div>
+      {% else %}
+        <p class="muted">No people have been added yet. An administrator can add the founding couple.</p>
+      {% endif %}
+    </div>
+
+    <div class="tree-legend" aria-label="Legend">
+      <span><i class="legend-accent g-male"></i>Male</span>
+      <span><i class="legend-accent g-female"></i>Female</span>
+      <span><i class="legend-accent g-other"></i>Other</span>
+      <span><i class="legend-memorial">†</i>Deceased</span>
+      <span><i class="legend-pending"></i>Pending</span>
+    </div>
+
+    <div class="tree-zoom" aria-label="Zoom controls">
+      <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
+      <button type="button" id="zoom-out" aria-label="Zoom out">−</button>
+      <button type="button" id="zoom-fit" aria-label="Fit tree to screen">⤢</button>
+    </div>
+
+    <div class="tree-status" id="tree-status" aria-live="polite"></div>
+    <div class="tree-toast" id="tree-toast" hidden></div>
+
+    <div class="drawer-backdrop" id="drawer-backdrop" hidden></div>
+    <aside class="drawer" id="drawer" role="dialog" aria-modal="false" aria-label="Person details" aria-hidden="true"></aside>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/js/tree.js" defer></script>{% endblock %}

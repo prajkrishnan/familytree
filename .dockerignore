@@ -1,0 +1,12 @@
+.venv
+data
+tests
+docs
+.playwright
+__pycache__
+*.pyc
+.pytest_cache
+.env
+.git
+.gitignore
+README.md

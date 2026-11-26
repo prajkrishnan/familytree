@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}First-run setup · {{ site_title }}{% endblock %}
+{% block bodyclass %}auth-page{% endblock %}
+{% block mainclass %}setup-main{% endblock %}
+{% block content %}
+<section class="setup-shell">
+  <div class="setup-intro">
+    <p class="eyebrow">First run</p>
+    <h1>Set up your family tree</h1>
+    <p class="muted">Create the administrator account, then optionally start with the founding patriarch and matriarch. You can add more people later.</p>
+    <div class="notice">
+      <strong>Setup token</strong>
+      <p>For safety this one-time token is printed in the container logs:</p>
+      <p><code>docker compose logs app | grep -i "setup token"</code></p>
+      <p>It is also saved inside the data volume at <code>/data/setup_token</code>, unless you set <code>SETUP_TOKEN</code>.
+         Your configured address: <code>{{ settings.base_url }}/setup</code></p>
+    </div>
+  </div>
+  <form method="post" action="/setup" class="card setup-form">
+    <input type="hidden" name="_csrf" value="{{ csrf }}">
+    {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+    {% if address_note %}
+      <div class="alert alert-warn"><strong>Address mismatch.</strong> {{ address_note }}</div>
+    {% endif %}
+    <fieldset>
+      <legend>Administrator</legend>
+      <label class="field">
+        <span>Setup token</span>
+        <input type="password" name="token" autocomplete="off" required>
+      </label>
+      {% if address_note %}
+        <label class="check check-lg">
+          <input type="checkbox" name="address_ok" value="1" required>
+          <span>I checked the address mismatch box and want to continue anyway.</span>
+        </label>
+      {% endif %}
+      <label class="field">
+        <span>Your name</span>
+        <input type="text" name="display_name" maxlength="120" value="{{ form.get('display_name', '') }}" required>
+      </label>
+      <div class="grid-2">
+        <label class="field">
+          <span>Email</span>
+          <input type="email" name="email" autocomplete="username" value="{{ form.get('email', '') }}" required>
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <input type="password" name="password" minlength="12" autocomplete="new-password" required>
+          <small>At least 12 characters.</small>
+        </label>
+      </div>
+      <label class="field">
+        <span>Confirm password</span>
+        <input type="password" name="confirm" autocomplete="new-password" required>
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Founding couple <span class="legend-hint">optional</span></legend>
+      <p class="muted small">These two people become the roots of the tree. Leave blank to add them later.</p>
+      <div class="grid-2">
+        <div class="subcard">
+          <h3>Patriarch</h3>
+          <label class="field"><span>Given name</span><input type="text" name="patriarch_given" value="{{ form.get('patriarch_given', '') }}"></label>
+          <label class="field"><span>Family name</span><input type="text" name="patriarch_surname" value="{{ form.get('patriarch_surname', '') }}"></label>
+          <div class="grid-2">
+            <label class="field"><span>Birth year</span><input type="number" name="patriarch_year" min="1000" max="2200" value="{{ form.get('patriarch_year', '') }}"></label>
+            <label class="check"><input type="checkbox" name="patriarch_deceased" {% if form.get('patriarch_deceased') %}checked{% endif %}> <span>Deceased</span></label>
+          </div>
+        </div>
+        <div class="subcard">
+          <h3>Matriarch</h3>
+          <label class="field"><span>Given name</span><input type="text" name="matriarch_given" value="{{ form.get('matriarch_given', '') }}"></label>
+          <label class="field"><span>Family name</span><input type="text" name="matriarch_surname" value="{{ form.get('matriarch_surname', '') }}"></label>
+          <div class="grid-2">
+            <label class="field"><span>Birth year</span><input type="number" name="matriarch_year" min="1000" max="2200" value="{{ form.get('matriarch_year', '') }}"></label>
+            <label class="check"><input type="checkbox" name="matriarch_deceased" {% if form.get('matriarch_deceased') %}checked{% endif %}> <span>Deceased</span></label>
+          </div>
+        </div>
+      </div>
+    </fieldset>
+
+    <button class="btn btn-primary btn-block" type="submit">Create family tree</button>
+  </form>
+</section>
+{% endblock %}

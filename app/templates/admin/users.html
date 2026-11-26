@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Users · {{ site_title }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="eyebrow">Administration</p>
+    <h1>Users</h1>
+    <p class="muted">{{ users|length }} accounts · {{ active_admins }} active administrator{{ 's' if active_admins != 1 }}</p>
+  </div>
+</div>
+{% include "admin/_nav.html" %}
+
+{% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+
+{% if reset_password %}
+  <div class="alert alert-ok">
+    <strong>Temporary password for {{ reset_user }}:</strong>
+    <code class="temp-password">{{ reset_password }}</code>
+    <p class="small">Copy it now — it will not be shown again. All their sessions have been signed out.</p>
+  </div>
+{% endif %}
+
+{% set pending = users|selectattr('status', 'equalto', 'pending')|list %}
+{% if pending %}
+  <section class="card">
+    <h2>Waiting for approval</h2>
+    <div class="pending-users">
+      {% for u in pending %}
+        <div class="pending-user">
+          <div class="pending-user-info">
+            <strong>{{ u.display_name }}</strong>
+            <span class="muted small">{{ u.email }} · registered {{ u.created_at|rel_time }}</span>
+          </div>
+          <form method="post" action="/admin/users/{{ u.id }}/approve" class="inline-form">
+            <input type="hidden" name="_csrf" value="{{ csrf }}">
+            <label class="field field-inline">
+              <span>Link to person</span>
+              <select name="person_id">
+                <option value="">— Not linked yet —</option>
+                {% for p in people %}
+                  <option value="{{ p.id }}">{{ p.name }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <button class="btn btn-primary btn-sm" type="submit">Approve</button>
+          </form>
+          <form method="post" action="/admin/users/{{ u.id }}/reject" data-confirm="Reject this registration?">
+            <input type="hidden" name="_csrf" value="{{ csrf }}">
+            <button class="btn btn-ghost btn-sm" type="submit">Reject</button>
+          </form>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endif %}
+
+<section class="card">
+  <h2>All accounts</h2>
+  {% if not people %}
+    <p class="muted small">No person records exist yet, so accounts cannot be linked. Add people to the tree first.</p>
+  {% endif %}
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr><th>Account</th><th>Status</th><th>Role</th><th>Linked person</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+          {% if u.status != 'pending' %}
+            <tr>
+              <td>
+                <strong>{{ u.display_name }}</strong>{% if u.id == user.id %} <span class="you-badge">You</span>{% endif %}
+                <br><span class="muted small">{{ u.email }}</span>
+              </td>
+              <td><span class="status status-{{ u.status }}">{{ u.status }}</span></td>
+              <td>{{ 'Admin' if u.role == 'admin' else 'User' }}</td>
+              <td>
+                {% if u.person_given is not none %}
+                  {{ u.person_given }} {{ u.person_surname }}
+                {% else %}
+                  <span class="muted">Not linked</span>
+                {% endif %}
+              </td>
+              <td class="row-actions-cell">
+                <details class="row-menu">
+                  <summary class="btn btn-sm">Manage</summary>
+                  <div class="row-menu-body">
+                    <form method="post" action="/admin/users/{{ u.id }}/role" class="row-form">
+                      <input type="hidden" name="_csrf" value="{{ csrf }}">
+                      <label class="field field-inline"><span>Role</span>
+                        <select name="role">
+                          <option value="user" {% if u.role == 'user' %}selected{% endif %}>Regular user</option>
+                          <option value="admin" {% if u.role == 'admin' %}selected{% endif %}>Administrator</option>
+                        </select>
+                      </label>
+                      <button class="btn btn-sm" type="submit">Save role</button>
+                    </form>
+
+                    <form method="post" action="/admin/users/{{ u.id }}/status" class="row-form">
+                      <input type="hidden" name="_csrf" value="{{ csrf }}">
+                      <input type="hidden" name="status" value="{{ 'disabled' if u.status == 'active' else 'active' }}">
+                      <button class="btn btn-sm {{ 'btn-danger-ghost' if u.status == 'active' else '' }}" type="submit">
+                        {{ 'Deactivate account' if u.status == 'active' else 'Reactivate account' }}
+                      </button>
+                    </form>
+
+                    <form method="post" action="/admin/users/{{ u.id }}/link" class="row-form">
+                      <input type="hidden" name="_csrf" value="{{ csrf }}">
+                      <label class="field field-inline"><span>Linked person</span>
+                        <select name="person_id">
+                          <option value="">— Not linked —</option>
+                          {% for p in people %}
+                            <option value="{{ p.id }}" {% if p.id == u.person_id %}selected{% endif %}>{{ p.name }}</option>
+                          {% endfor %}
+                        </select>
+                      </label>
+                      <button class="btn btn-sm" type="submit">Save link</button>
+                    </form>
+
+                    <form method="post" action="/admin/users/{{ u.id }}/reset-password" class="row-form"
+                          data-confirm="Reset this password and sign the account out everywhere?">
+                      <input type="hidden" name="_csrf" value="{{ csrf }}">
+                      <button class="btn btn-sm btn-danger-ghost" type="submit">Reset password</button>
+                    </form>
+                  </div>
+                </details>
+              </td>
+            </tr>
+          {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

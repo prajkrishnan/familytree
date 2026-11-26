@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}{{ code }} · {{ site_title }}{% endblock %}
+{% block content %}
+<section class="empty-state">
+  <div class="empty-mark">{{ code }}</div>
+  <h1>{{ message }}</h1>
+  <p><a class="btn btn-primary" href="{{ '/tree' if user else '/login' }}">Go back</a></p>
+</section>
+{% endblock %}

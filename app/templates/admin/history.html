@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}History · {{ site_title }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="eyebrow">Revision history</p>
+    <h1>{{ person|display_name }}</h1>
+    <p class="muted">
+      {{ person|lifespan }}
+      {% if person.deleted_at %} · removed from the tree{% endif %}
+      · version {{ person.version }}
+    </p>
+  </div>
+  <a class="btn" href="/tree?focus={{ person.id }}&open={{ person.id }}">View in tree</a>
+</div>
+
+{% if not events %}
+  <section class="card"><p class="muted">No recorded changes for this person.</p></section>
+{% else %}
+  <div class="history-list">
+    {% for item in events %}
+      <article class="card history-item">
+        <div class="history-head">
+          <div>
+            <strong>{{ item.row.action }}</strong>
+            <span class="muted small">by {{ item.row.actor_name or 'System' }} · {{ item.row.created_at|rel_time }}</span>
+          </div>
+        </div>
+        {% if item.before or item.after %}
+          <details>
+            <summary class="small">Show recorded values</summary>
+            <div class="history-json">
+              {% if item.before %}<div><h4>Before</h4><pre>{{ item.before }}</pre></div>{% endif %}
+              {% if item.after %}<div><h4>After</h4><pre>{{ item.after }}</pre></div>{% endif %}
+            </div>
+          </details>
+        {% endif %}
+      </article>
+    {% endfor %}
+  </div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,9 @@
+<nav class="admin-tabs" aria-label="Administration">
+  <a href="/admin" class="{% if current_path == '/admin' %}active{% endif %}">Overview</a>
+  <a href="/admin/queue" class="{% if current_path.startswith('/admin/queue') %}active{% endif %}">Review queue{% if pending_admin %} <span class="nav-badge">{{ pending_admin }}</span>{% endif %}</a>
+  <a href="/admin/users" class="{% if current_path.startswith('/admin/users') %}active{% endif %}">Users</a>
+  <a href="/admin/invites" class="{% if current_path.startswith('/admin/invites') %}active{% endif %}">Invites</a>
+  <a href="/admin/settings" class="{% if current_path.startswith('/admin/settings') %}active{% endif %}">Settings</a>
+  <a href="/admin/backups" class="{% if current_path.startswith('/admin/backups') %}active{% endif %}">Backups</a>
+  <a href="/admin/audit" class="{% if current_path.startswith('/admin/audit') %}active{% endif %}">Audit log</a>
+</nav>

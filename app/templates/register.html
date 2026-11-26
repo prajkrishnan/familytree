@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Register · {{ site_title }}{% endblock %}
+{% block bodyclass %}auth-page{% endblock %}
+{% block mainclass %}auth-main{% endblock %}
+{% block content %}
+<section class="auth-card auth-card-wide">
+  <div class="auth-brand">
+    <h1>Join the family tree</h1>
+  </div>
+  {% if mode == 'invite_only' %}
+    <p class="muted">Registration is invite-only. Ask an administrator for an invite link, or sign in if you already have an account.</p>
+    <a class="btn btn-primary btn-block" href="/login">Back to sign in</a>
+  {% else %}
+    <p class="muted">
+      {% if mode == 'passcode' %}Enter the family passcode to request an account.
+      {% else %}Create an account. An administrator must approve it before you can sign in.{% endif %}
+    </p>
+    {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+    <form method="post" action="/register" class="stack">
+      <input type="hidden" name="_csrf" value="{{ csrf }}">
+      {% if mode == 'passcode' %}
+      <label class="field"><span>Family passcode</span><input type="password" name="passcode" required></label>
+      {% endif %}
+      <label class="field"><span>Your name</span><input type="text" name="display_name" maxlength="120" value="{{ form.get('display_name', '') }}" required></label>
+      <label class="field"><span>Email</span><input type="email" name="email" autocomplete="username" value="{{ form.get('email', '') }}" required></label>
+      <label class="field"><span>Password</span><input type="password" name="password" minlength="12" autocomplete="new-password" required><small>At least 12 characters.</small></label>
+      <label class="field"><span>Confirm password</span><input type="password" name="confirm" autocomplete="new-password" required></label>
+      <button class="btn btn-primary btn-block" type="submit">Request access</button>
+    </form>
+  {% endif %}
+  <p class="auth-foot"><a href="/login">Back to sign in</a></p>
+</section>
+{% endblock %}

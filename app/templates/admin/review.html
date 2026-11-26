@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Review change · {{ site_title }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="eyebrow"><a href="/admin/queue" class="quiet-link">Review queue</a></p>
+    <h1>{{ change_set.title or 'Change request' }}</h1>
+    <p class="muted">
+      Submitted by <strong>{{ submitter.display_name if submitter else 'Unknown' }}</strong>
+      · {{ change_set.submitted_at|rel_time }}
+      <span class="status status-{{ change_set.status }}">{{ change_set.status|replace('_', ' ') }}</span>
+    </p>
+  </div>
+</div>
+
+{% if change_set.status == 'needs_rebase' %}
+  <div class="alert alert-warn">
+    <strong>This change could not be applied automatically.</strong>
+    <p>{{ change_set.conflict_json }}</p>
+    <p class="small">Reject it and edit the person directly if the values are still wanted.</p>
+  </div>
+{% elif change_set.status == 'rejected' %}
+  <div class="alert alert-error">
+    <strong>Rejected{% if change_set.decision_reason %}: {{ change_set.decision_reason }}{% endif %}</strong>
+  </div>
+{% endif %}
+
+<div class="review-stack">
+  {% for item in items %}
+    <section class="card diff-card">
+      <div class="section-head">
+        <h2>
+          {% if item.row.op == 'person_create' %}New member addition
+          {% elif item.row.op == 'person_update' %}Edit existing person
+          {% elif item.row.op == 'union_create' %}New family / partnership
+          {% elif item.row.op == 'union_update' %}Add a partner
+          {% elif item.row.op == 'union_child_add' %}New relationship link
+          {% else %}{{ item.row.op }}{% endif %}
+        </h2>
+        <div class="button-row">
+          {% if can_revise %}
+            <a class="btn btn-sm" href="/admin/queue/{{ change_set.id }}/revise">Edit before approving</a>
+          {% endif %}
+          {% if item.subject %}
+            <a class="btn btn-sm btn-ghost" href="/tree?focus={{ item.subject.id }}&open={{ item.subject.id }}">View record</a>
+          {% endif %}
+        </div>
+      </div>
+      <table class="diff-table">
+        <thead><tr><th>Field</th><th>Current value</th><th>Proposed value</th></tr></thead>
+        <tbody>
+          {% for row in item.diff %}
+            <tr>
+              <th scope="row">{{ row.label }}</th>
+              <td class="diff-old">{{ row.old }}</td>
+              <td class="diff-new">{{ row.new }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if item.row.op == 'person_update' and item.subject and not can_revise %}
+        <p class="small muted">Need to fix something first?
+          <a href="/persons/{{ item.subject.id }}/edit">Edit this person directly</a> —
+          then return here to approve or reject the submission.</p>
+      {% endif %}
+    </section>
+  {% endfor %}
+</div>
+
+{% if change_set.status in ('pending', 'needs_rebase') %}
+  <div class="review-actions">
+    {% if change_set.status == 'pending' %}
+      <form method="post" action="/admin/queue/{{ change_set.id }}/approve">
+        <input type="hidden" name="_csrf" value="{{ csrf }}">
+        <button class="btn btn-primary" type="submit">Approve and apply</button>
+      </form>
+    {% endif %}
+    <form method="post" action="/admin/queue/{{ change_set.id }}/reject" class="reject-form">
+      <input type="hidden" name="_csrf" value="{{ csrf }}">
+      <label class="field">
+        <span>Reason for rejection <small>(optional, shown to the submitter)</small></span>
+        <input type="text" name="reason" maxlength="500" placeholder="For example: duplicate record">
+      </label>
+      <button class="btn btn-danger-ghost" type="submit">Reject</button>
+    </form>
+  </div>
+{% endif %}
+{% endblock %}

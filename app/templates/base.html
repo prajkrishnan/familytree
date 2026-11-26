@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="csrf-token" content="{{ csrf }}">
+  <meta name="color-scheme" content="light">
+  <title>{% block title %}{{ site_title }}{% endblock %}</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/css/app.css">
+  {% block head %}{% endblock %}
+</head>
+<body class="{% block bodyclass %}{% endblock %}" data-refreshed="{{ '1' if token_refreshed else '' }}">
+{% if user %}
+<header class="topbar">
+  <a class="brand" href="/tree" aria-label="{{ site_title }} home">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v5M6 21v-4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v4M6 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm12 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM12 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    <span>{{ site_title }}</span>
+  </a>
+  <nav class="topnav" aria-label="Main">
+    <a href="/tree" class="{% if current_path == '/tree' %}active{% endif %}">Tree</a>
+    <a href="/me/submissions" class="{% if current_path.startswith('/me/') %}active{% endif %}">My submissions</a>
+    {% if user.role == 'admin' %}
+      <a href="/admin" class="{% if current_path.startswith('/admin') %}active{% endif %}">
+        Admin{% if pending_admin %}<span class="nav-badge">{{ pending_admin }}</span>{% endif %}
+      </a>
+    {% endif %}
+    <a href="/account" class="{% if current_path.startswith('/account') %}active{% endif %}">Account</a>
+  </nav>
+  <div class="topbar-user">
+    <span class="who">{{ user.display_name }}</span>
+    <form method="post" action="/logout" class="inline">
+      <input type="hidden" name="_csrf" value="{{ csrf }}">
+      <button type="submit" class="btn btn-ghost btn-sm">Sign out</button>
+    </form>
+  </div>
+</header>
+{% endif %}
+
+{% if flashes %}
+<div class="flashes" aria-live="polite">
+  {% for flash in flashes %}
+    <div class="flash flash-{{ flash.kind|default('ok') }}" data-flash>
+      <span>{{ flash.message }}</span>
+      <button type="button" class="flash-close" aria-label="Dismiss">×</button>
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<main class="{% block mainclass %}container{% endblock %}">
+  {% block content %}{% endblock %}
+</main>
+
+{% if user %}<script src="/static/js/app.js" defer></script>{% endif %}
+{% block scripts %}{% endblock %}
+</body>
+</html>

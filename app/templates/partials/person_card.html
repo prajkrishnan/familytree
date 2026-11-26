@@ -1,0 +1,156 @@
+{% set is_deceased = not person.is_living %}
+<div class="drawer-head">
+  <div class="drawer-person">
+    <div class="avatar avatar-lg {% if person.gender == 'male' %}av-male{% elif person.gender == 'female' %}av-female{% else %}av-other{% endif %} {% if is_deceased %}av-deceased{% endif %}">
+      {% if person.avatar_visible and person.avatar_key %}
+        <img src="/media/avatar/{{ person.id }}?v={{ person.avatar_updated_at }}&size=thumb" alt="">
+      {% else %}
+        <span>{{ person|initials }}</span>
+      {% endif %}
+    </div>
+    <div>
+      <h2 class="drawer-name">{{ person|display_name }}{% if person.nickname %} <span class="nick">“{{ person.nickname }}”</span>{% endif %}</h2>
+      <p class="drawer-meta">
+        <span class="gender-badge g-{{ person.gender }}">{{ gender_icon(person.gender) }} {{ gender_label(person.gender) }}</span>
+        <span class="dot-sep">·</span>
+        <span>{{ person|lifespan }}</span>
+        {% if is_deceased %}<span class="memorial-mark" title="Deceased">†</span>{% endif %}
+      </p>
+    </div>
+  </div>
+  <button type="button" class="icon-btn drawer-close" aria-label="Close details" data-drawer-close>×</button>
+</div>
+
+{% if pending_count %}
+  <div class="pending-banner">⏳ {{ pending_count }} change{{ 's' if pending_count != 1 }} awaiting administrator review</div>
+{% endif %}
+
+<div class="drawer-actions">
+  <a class="btn btn-sm" href="/tree?focus={{ person.id }}&open={{ person.id }}" data-focus-link>Focus here</a>
+  {% if can_submit %}
+    <a class="btn btn-sm btn-primary" href="/persons/{{ person.id }}/edit">Edit</a>
+    <details class="menu">
+      <summary class="btn btn-sm">Add relative</summary>
+      <div class="menu-items">
+        <a href="/persons/new?anchor={{ person.id }}&relation=father">Father</a>
+        <a href="/persons/new?anchor={{ person.id }}&relation=mother">Mother</a>
+        <a href="/persons/new?anchor={{ person.id }}&relation=spouse">Spouse / partner</a>
+        <a href="/persons/new?anchor={{ person.id }}&relation=son">Son</a>
+        <a href="/persons/new?anchor={{ person.id }}&relation=daughter">Daughter</a>
+        <a href="/persons/new?anchor={{ person.id }}&relation=brother">Brother</a>
+        <a href="/persons/new?anchor={{ person.id }}&relation=sister">Sister</a>
+      </div>
+    </details>
+  {% endif %}
+  {% if is_admin %}
+    <a class="btn btn-sm btn-ghost" href="/persons/{{ person.id }}/history">History{% if history_count %} ({{ history_count }}){% endif %}</a>
+  {% endif %}
+</div>
+
+<div class="drawer-body">
+  <section class="detail-block">
+    <h3>Life</h3>
+    <dl class="detail-list">
+      <div><dt>Born</dt><dd>
+        {% if 'birth' in hidden %}<span class="private-value">Private</span>
+        {% else %}{{ person|birth_text }}{% endif %}
+      </dd></div>
+      {% if not person.is_living %}
+        <div><dt>Died</dt><dd>
+          {% if 'death' in hidden %}<span class="private-value">Private</span>
+          {% else %}{{ person|death_text }}{% endif %}
+        </dd></div>
+        {% if 'memorial' not in hidden and (person.resting_place or person.memorial_note) %}
+          {% if person.resting_place %}<div><dt>Resting place</dt><dd>{{ person.resting_place }}</dd></div>{% endif %}
+          {% if person.memorial_note %}<div><dt>Memorial</dt><dd class="prewrap">{{ person.memorial_note }}</dd></div>{% endif %}
+        {% endif %}
+      {% endif %}
+    </dl>
+  </section>
+
+  <section class="detail-block">
+    <h3>Contact</h3>
+    {% if 'contact' in hidden %}
+      <p class="private-value">Private — visible to the person, their immediate family and administrators.</p>
+    {% elif person.email or person.phone or person.phone_alt %}
+      <dl class="detail-list">
+        {% if person.phone %}<div><dt>Phone</dt><dd><a href="tel:{{ person.phone }}">{{ person.phone }}</a></dd></div>{% endif %}
+        {% if person.phone_alt %}<div><dt>Alternate phone</dt><dd><a href="tel:{{ person.phone_alt }}">{{ person.phone_alt }}</a></dd></div>{% endif %}
+        {% if person.email %}<div><dt>Email</dt><dd><a href="mailto:{{ person.email }}">{{ person.email }}</a></dd></div>{% endif %}
+      </dl>
+    {% else %}
+      <p class="muted">No contact details recorded.</p>
+    {% endif %}
+  </section>
+
+  <section class="detail-block">
+    <h3>Address</h3>
+    {% if 'address' in hidden %}
+      <p class="private-value">Private</p>
+    {% elif person.address_line1 or person.city or person.country %}
+      <address class="address">
+        {% if person.address_line1 %}{{ person.address_line1 }}<br>{% endif %}
+        {% if person.address_line2 %}{{ person.address_line2 }}<br>{% endif %}
+        {{ [person.city, person.region, person.postal_code]|select|join(', ') }}{% if person.city or person.region or person.postal_code %}<br>{% endif %}
+        {% if person.country %}{{ person.country }}{% endif %}
+      </address>
+    {% else %}
+      <p class="muted">No address recorded.</p>
+    {% endif %}
+  </section>
+
+  {% if 'notes' in hidden %}
+    <section class="detail-block"><h3>Notes</h3><p class="private-value">Private</p></section>
+  {% elif person.notes %}
+    <section class="detail-block"><h3>Notes</h3><p class="prewrap">{{ person.notes }}</p></section>
+  {% endif %}
+
+  <section class="detail-block">
+    <h3>Immediate family</h3>
+    <div class="family-links">
+      {% if family.parents %}
+        <div class="fam-group">
+          <span class="fam-label">Parents</span>
+          {% for p, label in family.parents %}
+            <a class="fam-link" href="/tree?focus={{ p.id }}&open={{ p.id }}" data-focus-link>
+              <span class="g-dot g-{{ p.gender }}"></span>{{ p|display_name }} <small>{{ label }}</small>
+            </a>
+          {% endfor %}
+        </div>
+      {% endif %}
+      {% if family.spouses %}
+        <div class="fam-group">
+          <span class="fam-label">Partner</span>
+          {% for s, label, union in family.spouses %}
+            <a class="fam-link" href="/tree?focus={{ s.id }}&open={{ s.id }}" data-focus-link>
+              <span class="g-dot g-{{ s.gender }}"></span>{{ s|display_name }} <small>{{ label }}</small>
+            </a>
+          {% endfor %}
+        </div>
+      {% endif %}
+      {% if family.siblings %}
+        <div class="fam-group">
+          <span class="fam-label">Siblings</span>
+          {% for s, label in family.siblings %}
+            <a class="fam-link" href="/tree?focus={{ s.id }}&open={{ s.id }}" data-focus-link>
+              <span class="g-dot g-{{ s.gender }}"></span>{{ s|display_name }} <small>{{ label }}</small>
+            </a>
+          {% endfor %}
+        </div>
+      {% endif %}
+      {% if family.children %}
+        <div class="fam-group">
+          <span class="fam-label">Children</span>
+          {% for c, label in family.children %}
+            <a class="fam-link" href="/tree?focus={{ c.id }}&open={{ c.id }}" data-focus-link>
+              <span class="g-dot g-{{ c.gender }}"></span>{{ c|display_name }} <small>{{ label }}</small>
+            </a>
+          {% endfor %}
+        </div>
+      {% endif %}
+      {% if not (family.parents or family.spouses or family.siblings or family.children) %}
+        <p class="muted">No immediate family recorded yet.</p>
+      {% endif %}
+    </div>
+  </section>
+</div>

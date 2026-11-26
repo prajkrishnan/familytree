@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}My submissions · {{ site_title }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="eyebrow">Contributions</p>
+    <h1>My submissions</h1>
+    <p class="muted">Changes you send are reviewed by an administrator before they appear on the tree.</p>
+  </div>
+  <a class="btn" href="/tree">Back to tree</a>
+</div>
+
+{% if not sets %}
+  <section class="card empty-card">
+    <p>You have not submitted any changes yet.</p>
+    <p class="muted">Open a person on the tree and choose “Add relative” or “Edit” to contribute.</p>
+  </section>
+{% else %}
+  <div class="submission-list">
+    {% for s in sets %}
+      <article class="card submission">
+        <div class="submission-head">
+          <div>
+            <h2>{{ s.title or 'Change request' }}</h2>
+            <p class="muted small">Submitted {{ s.submitted_at|rel_time }}</p>
+          </div>
+          <span class="status status-{{ s.status }}">{{ s.status|replace('_', ' ') }}</span>
+        </div>
+        {% if s.status == 'rejected' and s.decision_reason %}
+          <div class="alert alert-error"><strong>Rejected:</strong> {{ s.decision_reason }}</div>
+        {% elif s.status == 'needs_rebase' %}
+          <div class="alert alert-warn"><strong>Needs attention:</strong> {{ s.conflict_json }}</div>
+        {% endif %}
+        <ul class="diff-list">
+          {% for item in items[s.id] %}
+            {% for row in item.diff_json|fromjson %}
+              <li><span class="diff-label">{{ row.label }}</span>
+                {% if row.old and row.old != '—' %}<span class="diff-old">{{ row.old }}</span> → {% endif %}
+                <span class="diff-new">{{ row.new }}</span></li>
+            {% endfor %}
+          {% endfor %}
+        </ul>
+        {% if s.status == 'pending' %}
+          <form method="post" action="/me/submissions/{{ s.id }}/withdraw" data-confirm="Withdraw this submission?">
+            <input type="hidden" name="_csrf" value="{{ csrf }}">
+            <button class="btn btn-ghost btn-sm" type="submit">Withdraw</button>
+          </form>
+        {% endif %}
+      </article>
+    {% endfor %}
+  </div>
+{% endif %}
+{% endblock %}

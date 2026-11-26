@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Invites · {{ site_title }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="eyebrow">Administration</p>
+    <h1>Invite links</h1>
+    <p class="muted">Single-use links let relatives join directly, optionally pre-linked to their place in the tree.</p>
+  </div>
+</div>
+{% include "admin/_nav.html" %}
+
+{% if new_link %}
+  <div class="alert alert-ok invite-created">
+    <strong>Invite link created.</strong>
+    <p class="small">Copy it now — for security only a hash is stored, so it cannot be shown again.</p>
+    <div class="copy-row">
+      <input type="text" readonly value="{{ new_link }}" id="new-invite-link">
+      <button type="button" class="btn btn-sm" data-copy="#new-invite-link">Copy link</button>
+    </div>
+  </div>
+{% endif %}
+
+<div class="columns columns-sidebar">
+  <section class="card">
+    <h2>Create an invite</h2>
+    <form method="post" action="/admin/invites" class="stack">
+      <input type="hidden" name="_csrf" value="{{ csrf }}">
+      <div class="grid-2">
+        <label class="field"><span>Expires in (days)</span>
+          <input type="number" name="days" min="1" max="90" value="7"></label>
+        <label class="field"><span>Role</span>
+          <select name="role">
+            <option value="user">Regular user</option>
+            <option value="admin">Administrator</option>
+          </select></label>
+      </div>
+      <label class="field"><span>Pre-link to a person <small>(optional)</small></span>
+        <select name="person_id">
+          <option value="">— No link —</option>
+          {% for p in people %}
+            <option value="{{ p.id }}">{{ p.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="field"><span>Note <small>(internal, optional)</small></span>
+        <input type="text" name="note" maxlength="240" placeholder="For example: Aunt Meera's invitation"></label>
+      <button class="btn btn-primary" type="submit">Generate link</button>
+    </form>
+    <p class="muted small">Email delivery is not enabled. Share the generated link through your usual messaging app.</p>
+  </section>
+
+  <section class="card">
+    <h2>Recent invites</h2>
+    {% if not invites %}
+      <p class="muted">No invites created yet.</p>
+    {% else %}
+      <div class="invite-list">
+        {% for i in invites %}
+          <div class="invite-row">
+            <div>
+              <strong>
+                {% if i.used_at %}Used{% elif i.expires_at < now_ts %}Expired{% else %}Active{% endif %}
+              </strong>
+              <span class="muted small">
+                · created {{ i.created_at|rel_time }} by {{ i.creator_name or '—' }}
+                {% if i.given_name %} · for {{ i.given_name }} {{ i.surname }}{% endif %}
+                · {{ 'admin' if i.role == 'admin' else 'user' }}
+              </span>
+              {% if i.note %}<p class="small muted">{{ i.note }}</p>{% endif %}
+            </div>
+            {% if not i.used_at and i.expires_at >= now_ts %}
+              <form method="post" action="/admin/invites/{{ i.id }}/revoke" data-confirm="Revoke this invite link?">
+                <input type="hidden" name="_csrf" value="{{ csrf }}">
+                <button class="btn btn-sm btn-ghost" type="submit">Revoke</button>
+              </form>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

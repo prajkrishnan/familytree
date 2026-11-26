@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Review queue · {{ site_title }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="eyebrow">Administration</p>
+    <h1>Review queue</h1>
+    <p class="muted">Changes submitted by family members wait here until you approve or reject them.</p>
+  </div>
+</div>
+{% include "admin/_nav.html" %}
+
+<div class="filter-tabs">
+  {% for key, label in [('pending','Pending'), ('needs_rebase','Needs attention'), ('approved','Approved'), ('rejected','Rejected'), ('all','All')] %}
+    <a href="/admin/queue?status={{ key }}" class="filter-tab {% if filter == key %}active{% endif %}">
+      {{ label }}{% if counts.get(key) %} <span class="tab-count">{{ counts.get(key) }}</span>{% endif %}
+    </a>
+  {% endfor %}
+</div>
+
+{% if not sets %}
+  <section class="card empty-card">
+    <p>Nothing here.</p>
+    <p class="muted">When relatives submit additions or edits, they appear in this queue.</p>
+  </section>
+{% else %}
+  <div class="queue-list">
+    {% for s in sets %}
+      <a class="card queue-item" href="/admin/queue/{{ s.id }}">
+        <div>
+          <div class="queue-title">
+            <strong>{{ s.title or 'Change request' }}</strong>
+            <span class="status status-{{ s.status }}">{{ s.status|replace('_', ' ') }}</span>
+          </div>
+          <p class="muted small">
+            By {{ s.submitter_name }} · {{ s.submitted_at|rel_time }} · {{ s.item_count }} item{{ 's' if s.item_count != 1 }}
+          </p>
+        </div>
+        <span class="queue-chevron">→</span>
+      </a>
+    {% endfor %}
+  </div>
+{% endif %}
+{% endblock %}

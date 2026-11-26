@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Backups & export · {{ site_title }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="eyebrow">Administration</p>
+    <h1>Backups & export</h1>
+    <p class="muted">Keep a copy of the tree, or move it to another instance later.</p>
+  </div>
+</div>
+{% include "admin/_nav.html" %}
+
+<div class="columns columns-2">
+  <section class="card">
+    <h2>Export</h2>
+    <p class="muted small">The JSON export contains every person, family and link — including private fields — but not avatar image files. The SQLite snapshot is a complete, consistent copy of everything.</p>
+    <div class="button-row">
+      <a class="btn btn-primary" href="/admin/export/json">Download JSON</a>
+      <a class="btn" href="/admin/export/sqlite">Download SQLite snapshot</a>
+    </div>
+    <form method="post" action="/admin/backups/create" class="mt">
+      <input type="hidden" name="_csrf" value="{{ csrf }}">
+      <button class="btn" type="submit">Create a backup on the server</button>
+    </form>
+    <p class="muted small">Exports contain personal data. Store them encrypted and delete old copies you no longer need.</p>
+  </section>
+
+  <section class="card">
+    <h2>Import JSON</h2>
+    <p class="muted small">Replaces the whole tree (people, families and links) with the contents of a <code>familytree.v1</code> JSON export. Accounts are kept, but their person links are cleared. Photos are not part of JSON exports.</p>
+    <form method="post" action="/admin/backups/import" enctype="multipart/form-data"
+          data-confirm="This replaces every person and family in the tree. Continue?">
+      <input type="hidden" name="_csrf" value="{{ csrf }}">
+      <label class="field"><span>JSON export file</span><input type="file" name="file" accept="application/json,.json" required></label>
+      <label class="field"><span>Type REPLACE to confirm</span><input type="text" name="confirm" placeholder="REPLACE" required></label>
+      <button class="btn btn-danger" type="submit">Replace tree data</button>
+    </form>
+  </section>
+</div>
+
+<section class="card">
+  <div class="section-head">
+    <h2>Server backups</h2>
+    <span class="muted small">{{ files|length }} file{{ 's' if files|length != 1 }}</span>
+  </div>
+  {% if not files %}
+    <p class="muted">No backups yet. Create one before making large changes.</p>
+  {% else %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>File</th><th>Size</th><th>Created</th><th></th></tr></thead>
+        <tbody>
+          {% for f in files %}
+            <tr>
+              <td><code>{{ f.name }}</code></td>
+              <td>{{ (f.size / 1024)|round(0)|int }} KB</td>
+              <td>{{ f.modified|rel_time }}</td>
+              <td><a class="btn btn-sm" href="/admin/backups/{{ f.name }}/download">Download</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

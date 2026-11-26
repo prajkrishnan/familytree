@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Account · {{ site_title }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="eyebrow">Account</p>
+    <h1>{{ user.display_name }}</h1>
+    <p class="muted">{{ user.email }} · {{ 'Administrator' if user.role == 'admin' else 'Regular user' }}</p>
+  </div>
+</div>
+
+<div class="columns">
+  <section class="card">
+    <h2>Your place in the tree</h2>
+    {% if person %}
+      <p class="muted">Your account is linked to <strong>{{ person|full_name }}</strong> ({{ person|lifespan }}).</p>
+      <div class="button-row">
+        <a class="btn" href="/tree?focus={{ person.id }}&open={{ person.id }}">View my card</a>
+        <a class="btn" href="/persons/{{ person.id }}/edit">Edit my details</a>
+      </div>
+    {% elif user.role == 'admin' %}
+      <p class="muted">Your account is not linked to a person record. You have full administrative access; you can link yourself from <a href="/admin/users">Users</a>.</p>
+    {% else %}
+      <p class="muted">Your account is not linked to a person record yet. An administrator can connect you to your record; until then you can browse the tree but not submit edits.</p>
+    {% endif %}
+    <h2 class="mt">Submission summary</h2>
+    <div class="stat-row">
+      {% set counts = {} %}
+      {% for row in submissions %}{% if counts.update({row.status: row.n}) %}{% endif %}{% endfor %}
+      <span class="stat-chip">Pending <strong>{{ counts.get('pending', 0) }}</strong></span>
+      <span class="stat-chip">Approved <strong>{{ counts.get('approved', 0) }}</strong></span>
+      <span class="stat-chip">Rejected <strong>{{ counts.get('rejected', 0) }}</strong></span>
+    </div>
+    <p><a href="/me/submissions">View my submissions →</a></p>
+  </section>
+
+  <section class="card">
+    <h2>Change password</h2>
+    <form method="post" action="/account/password" class="stack">
+      <input type="hidden" name="_csrf" value="{{ csrf }}">
+      <label class="field"><span>Current password</span><input type="password" name="current_password" autocomplete="current-password" required></label>
+      <label class="field"><span>New password</span><input type="password" name="new_password" minlength="12" autocomplete="new-password" required><small>At least 12 characters.</small></label>
+      <label class="field"><span>Confirm new password</span><input type="password" name="confirm" autocomplete="new-password" required></label>
+      <button class="btn btn-primary" type="submit">Update password</button>
+    </form>
+    <hr class="rule">
+    <h2>Sessions</h2>
+    <p class="muted">Signing out everywhere revokes every browser session for this account.</p>
+    <form method="post" action="/account/logout-all">
+      <input type="hidden" name="_csrf" value="{{ csrf }}">
+      <button class="btn btn-danger-ghost" type="submit">Sign out on all devices</button>
+    </form>
+  </section>
+</div>
+{% endblock %}

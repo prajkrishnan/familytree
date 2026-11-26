@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} · {{ site_title }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="eyebrow">{{ 'New relative' if mode == 'new' else 'Edit person' }}</p>
+    <h1>{{ title }}</h1>
+    {% if anchor %}
+      <p class="muted">
+        Adding as <strong>{{ relation }}</strong> of <strong>{{ anchor|display_name }}</strong>.
+        {% if mode == 'new' and not can_direct %}This will be sent to an administrator for approval.{% endif %}
+      </p>
+    {% endif %}
+  </div>
+  <a class="btn" href="{{ cancel_url or ('/tree?focus=' ~ (person.id if person else (anchor.id if anchor else ''))) }}">← Back</a>
+</div>
+
+{% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+
+<form method="post" action="{{ action }}" enctype="multipart/form-data" class="card person-form" id="person-form">
+  <input type="hidden" name="_csrf" value="{{ csrf }}">
+  {% if person %}<input type="hidden" name="_version" value="{{ person.version }}">{% endif %}
+  {% if anchor %}
+    <input type="hidden" name="anchor" value="{{ anchor.id }}">
+    <input type="hidden" name="relation" value="{{ relation }}">
+  {% endif %}
+
+  {% if mode == 'new' and anchor %}
+    <section class="picker-block">
+      <div class="picker-head">
+        <h3>Is this person already in the tree?</h3>
+        <p class="muted small">Search first to avoid duplicate records. Leave empty to create someone new.</p>
+      </div>
+      <div class="picker" data-picker>
+        <input type="search" class="picker-input" data-picker-input placeholder="Search by name…" autocomplete="off" aria-label="Search existing people">
+        <input type="hidden" name="existing_person_id" value="" data-picker-value>
+        <div class="picker-results" data-picker-results hidden></div>
+      </div>
+      <div class="picker-selected" data-picker-selected hidden>
+        <span>Linking existing record: <strong data-picker-name></strong></span>
+        <button type="button" class="btn btn-ghost btn-sm" data-picker-clear>Create a new person instead</button>
+      </div>
+    </section>
+  {% endif %}
+
+  <div id="new-person-fields">
+    <fieldset>
+      <legend>Identity</legend>
+      <div class="grid-2">
+        <label class="field"><span>Given name</span>
+          <input type="text" name="given_name" maxlength="120" value="{{ values.given_name }}" autocomplete="off"></label>
+        <label class="field"><span>Family name</span>
+          <input type="text" name="surname" maxlength="120" value="{{ values.surname }}" autocomplete="off"></label>
+      </div>
+      <div class="grid-2">
+        <label class="field"><span>Middle names</span>
+          <input type="text" name="middle_names" maxlength="160" value="{{ values.middle_names }}"></label>
+        <label class="field"><span>Maiden name</span>
+          <input type="text" name="maiden_name" maxlength="120" value="{{ values.maiden_name }}"></label>
+      </div>
+      <div class="grid-2">
+        <label class="field"><span>Nickname</span>
+          <input type="text" name="nickname" maxlength="80" value="{{ values.nickname }}"></label>
+        <label class="field"><span>Gender</span>
+          <select name="gender">
+            {% for value, label in [('male', 'Male'), ('female', 'Female'), ('other', 'Other')] %}
+              <option value="{{ value }}" {% if values.gender == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+      <label class="check check-lg">
+        <input type="checkbox" name="living" id="living" {% if values.living %}checked{% endif %}>
+        <span>Living</span>
+        <small>Uncheck to record a date of passing, resting place or memorial.</small>
+      </label>
+      <input type="hidden" name="_living_present" value="1">
+    </fieldset>
+
+    {% if 'birth' in hidden %}
+      <div class="private-note">Birth details are private.</div>
+    {% else %}
+    <fieldset>
+      <legend>Date of birth</legend>
+      <div class="date-row">
+        <label class="field field-day"><span>Day</span>
+          <input type="number" name="birth_day" min="1" max="31" value="{{ values.birth_day }}" placeholder="—"></label>
+        <label class="field field-month"><span>Month</span>
+          <select name="birth_month">
+            <option value="">—</option>
+            {% for i in range(1, 13) %}
+              <option value="{{ i }}" {% if values.birth_month == i|string %}selected{% endif %}>{{ months[i] }}</option>
+            {% endfor %}
+          </select></label>
+        <label class="field field-year"><span>Year</span>
+          <input type="number" name="birth_year" min="1000" max="2200" value="{{ values.birth_year }}" placeholder="—"></label>
+        <label class="field field-qual"><span>Certainty</span>
+          <select name="birth_qualifier">
+            {% for value, label in [('exact', 'Exact'), ('about', 'About'), ('before', 'Before'), ('after', 'After')] %}
+              <option value="{{ value }}" {% if values.birth_qualifier == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select></label>
+      </div>
+      <p class="muted small">Day, month and year are all optional. Leave unknown parts blank — never guess.</p>
+    </fieldset>
+    {% endif %}
+
+    <fieldset id="death-fields" class="death-fields {% if values.living %}is-hidden{% endif %}">
+      <legend>Date of passing & memorial</legend>
+      {% if 'death' in hidden %}
+        <p class="private-value">Death details are private.</p>
+      {% else %}
+        <div class="date-row">
+          <label class="field field-day"><span>Day</span>
+            <input type="number" name="death_day" min="1" max="31" value="{{ values.death_day }}" placeholder="—"></label>
+          <label class="field field-month"><span>Month</span>
+            <select name="death_month">
+              <option value="">—</option>
+              {% for i in range(1, 13) %}
+                <option value="{{ i }}" {% if values.death_month == i|string %}selected{% endif %}>{{ months[i] }}</option>
+              {% endfor %}
+            </select></label>
+          <label class="field field-year"><span>Year</span>
+            <input type="number" name="death_year" min="1000" max="2200" value="{{ values.death_year }}" placeholder="—"></label>
+          <label class="field field-qual"><span>Certainty</span>
+            <select name="death_qualifier">
+              {% for value, label in [('exact', 'Exact'), ('about', 'About'), ('before', 'Before'), ('after', 'After')] %}
+                <option value="{{ value }}" {% if values.death_qualifier == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select></label>
+        </div>
+      {% endif %}
+      {% if 'memorial' not in hidden %}
+        <div class="grid-2">
+          <label class="field"><span>Resting place</span>
+            <input type="text" name="resting_place" maxlength="240" value="{{ values.resting_place }}" placeholder="Cemetery, village, country…"></label>
+          <label class="field"><span>Memorial note</span>
+            <textarea name="memorial_note" rows="2" maxlength="4000">{{ values.memorial_note }}</textarea></label>
+        </div>
+      {% endif %}
+    </fieldset>
+
+    {% if 'contact' in hidden %}
+      <div class="private-note">Contact details are private. Only this person's own account, their immediate family and administrators can see or edit them.</div>
+    {% else %}
+    <fieldset>
+      <legend>Contact</legend>
+      <div class="grid-2">
+        <label class="field"><span>Email</span><input type="email" name="email" maxlength="254" value="{{ values.email }}"></label>
+        <label class="field"><span>Phone</span><input type="tel" name="phone" maxlength="60" value="{{ values.phone }}"></label>
+      </div>
+      <label class="field"><span>Alternate phone</span><input type="tel" name="phone_alt" maxlength="60" value="{{ values.phone_alt }}"></label>
+    </fieldset>
+    {% endif %}
+
+    {% if 'address' in hidden %}
+      <div class="private-note">The residential address is private.</div>
+    {% else %}
+    <fieldset>
+      <legend>Residential address</legend>
+      <label class="field"><span>Address line 1</span><input type="text" name="address_line1" maxlength="240" value="{{ values.address_line1 }}"></label>
+      <label class="field"><span>Address line 2</span><input type="text" name="address_line2" maxlength="240" value="{{ values.address_line2 }}"></label>
+      <div class="grid-3">
+        <label class="field"><span>City</span><input type="text" name="city" maxlength="120" value="{{ values.city }}"></label>
+        <label class="field"><span>Region / state</span><input type="text" name="region" maxlength="120" value="{{ values.region }}"></label>
+        <label class="field"><span>Postal code</span><input type="text" name="postal_code" maxlength="32" value="{{ values.postal_code }}"></label>
+      </div>
+      <label class="field"><span>Country</span><input type="text" name="country" maxlength="120" value="{{ values.country }}"></label>
+    </fieldset>
+    {% endif %}
+
+    {% if 'notes' in hidden %}
+      <div class="private-note">Notes are private.</div>
+    {% else %}
+    <fieldset>
+      <legend>Notes</legend>
+      <label class="field">
+        <span>Additional information</span>
+        <textarea name="notes" rows="4" maxlength="12000" placeholder="Anything you would like to record — in English or any script.">{{ values.notes }}</textarea>
+        <small>Free text in any language or Unicode script.</small>
+      </label>
+    </fieldset>
+    {% endif %}
+
+    {% if 'photo' in hidden %}
+      <div class="private-note">The profile photo is private.</div>
+    {% else %}
+    <fieldset>
+      <legend>Profile photo</legend>
+      {% if person and person.avatar_key %}
+        <div class="current-photo">
+          <img src="/media/avatar/{{ person.id }}?v={{ person.avatar_updated_at }}&size=thumb" alt="Current photo of {{ person|display_name }}">
+          <span class="muted small">Uploading a new image replaces this one.</span>
+        </div>
+      {% endif %}
+      <label class="field">
+        <span>Upload image</span>
+        <input type="file" name="avatar" accept="image/jpeg,image/png,image/webp,image/gif">
+        <small>JPEG, PNG, WebP or GIF; resized automatically, metadata removed. Max {{ settings.max_upload_mb }} MB.</small>
+      </label>
+    </fieldset>
+    {% endif %}
+
+    {% if can_manage_privacy %}
+    <fieldset>
+      <legend>Privacy</legend>
+      <input type="hidden" name="_privacy_present" value="1">
+      <p class="muted small">Names and the shape of the tree are always visible to signed-in family members. Everything else can be restricted.</p>
+      <div class="privacy-row">
+        <span class="field-label">Contact details</span>
+        <label class="radio"><input type="radio" name="contact_visibility" value="all" {% if values.contact_visibility in ('', 'all') %}checked{% endif %}> All family members</label>
+        <label class="radio"><input type="radio" name="contact_visibility" value="family" {% if values.contact_visibility == 'family' %}checked{% endif %}> Immediate family only</label>
+        <label class="radio"><input type="radio" name="contact_visibility" value="private" {% if values.contact_visibility == 'private' %}checked{% endif %}> Only me &amp; administrators</label>
+      </div>
+      <div class="privacy-grid">
+        {% for key, label in groups.items() %}
+          <label class="check"><input type="checkbox" name="private_fields" value="{{ key }}" {% if key in values.private_fields %}checked{% endif %}> <span>{{ label }}</span></label>
+        {% endfor %}
+      </div>
+      <p class="muted small">Checked fields are hidden from everyone except this person and administrators.</p>
+    </fieldset>
+    {% endif %}
+  </div>
+
+  {% if anchor and relation in ('spouse',) %}
+    <fieldset>
+      <legend>Partnership</legend>
+      <div class="grid-2">
+        <label class="field"><span>Type</span>
+          <select name="union_kind">
+            <option value="marriage">Marriage</option>
+            <option value="civil_union">Civil union</option>
+            <option value="partnership">Partnership</option>
+            <option value="unknown">Unknown</option>
+          </select></label>
+        <label class="field"><span>Status</span>
+          <select name="union_status">
+            <option value="ongoing">Ongoing</option>
+            <option value="divorced">Divorced</option>
+            <option value="widowed">Widowed</option>
+            <option value="separated">Separated</option>
+            <option value="unknown">Unknown</option>
+          </select></label>
+      </div>
+    </fieldset>
+  {% endif %}
+
+  {% if anchor and relation in ('son', 'daughter') and partners %}
+    <fieldset>
+      <legend>Other parent</legend>
+      <label class="field">
+        <span>Shared family with</span>
+        <select name="union_id">
+          {% for p in partners %}
+            <option value="{{ p.union_id }}">{{ p.person|display_name }}</option>
+          {% endfor %}
+        </select>
+        <small>Choose which partnership this child belongs to.</small>
+      </label>
+    </fieldset>
+  {% endif %}
+
+  <div class="form-actions">
+    <a class="btn" href="{{ cancel_url or ('/tree?focus=' ~ (person.id if person else (anchor.id if anchor else ''))) }}">Cancel</a>
+    {% if revise %}
+      <button class="btn btn-primary" type="submit" name="action" value="direct">Save revision and approve</button>
+    {% elif can_direct %}
+      <button class="btn" type="submit" name="action" value="submit">Save for review</button>
+      <button class="btn btn-primary" type="submit" name="action" value="direct">Save directly</button>
+    {% else %}
+      <button class="btn btn-primary" type="submit" name="action" value="submit">Submit for approval</button>
+    {% endif %}
+  </div>
+</form>
+
+{% if person and can_direct and not revise %}
+  <div class="danger-zone">
+    <h2>Remove person</h2>
+    <p class="muted small">Removes this person and their partnership links from the tree. This cannot be undone from the UI.</p>
+    <form method="post" action="/persons/{{ person.id }}/delete" data-confirm="Remove {{ person|display_name }} from the tree?">
+      <input type="hidden" name="_csrf" value="{{ csrf }}">
+      <button class="btn btn-danger" type="submit">Remove from tree</button>
+    </form>
+  </div>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="/static/js/person-form.js" defer></script>{% endblock %}
